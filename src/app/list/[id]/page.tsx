@@ -1,0 +1,122 @@
+import { getItems } from '@/actions/item'
+import prisma from '@/lib/prisma'
+import { notFound } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import AddItemDialog from '@/components/AddItemDialog'
+import ItemActions from '@/components/ItemActions'
+import Link from 'next/link'
+import { ChevronLeft } from 'lucide-react'
+import ListDeleteButton from '@/components/ListDeleteButton'
+import { cn } from '@/lib/utils'
+
+export const dynamic = 'force-dynamic'
+
+export default async function ListPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const list = await prisma.list.findUnique({
+    where: { id },
+  })
+
+  if (!list) notFound()
+
+  const items = await getItems(id)
+
+  const postItColors = [
+    'bg-yellow-100 border-yellow-200 text-yellow-900',
+    'bg-blue-100 border-blue-200 text-blue-900',
+    'bg-green-100 border-green-200 text-green-900',
+    'bg-pink-100 border-pink-200 text-pink-900',
+    'bg-purple-100 border-purple-200 text-purple-900',
+  ]
+
+  return (
+    <main className="container mx-auto p-8 min-h-screen bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+      <div className="mb-6">
+        <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Back to Dashboard
+        </Link>
+      </div>
+
+      <div className="flex justify-between items-start mb-12">
+        <div>
+          <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
+          <p className="text-muted-foreground font-mono">{items.length} notes pinned</p>
+        </div>
+        <div className="flex gap-2">
+          <ListDeleteButton id={id} isRedirect={true} />
+          <AddItemDialog listId={id} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        {items.map((item, index) => {
+          const colorClass = postItColors[index % postItColors.length]
+          const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
+          
+          return (
+            <div 
+              key={item.id} 
+              className={cn(
+                "transition-transform hover:rotate-0 hover:scale-105 duration-200",
+                rotationClass
+              )}
+            >
+              <Card className={cn(
+                "h-64 shadow-xl border-t-8 flex flex-col relative",
+                colorClass,
+                item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
+              )}>
+                <CardContent className="p-6 flex flex-col h-full">
+                  <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                    <ItemActions id={item.id} status={item.status} listId={id} />
+                  </div>
+
+                  <div className="mt-4 flex-1 overflow-hidden">
+                    <h3 className={cn(
+                      "text-xl font-bold leading-tight mb-2",
+                      item.status === 'COMPLETED' ? 'line-through' : ''
+                    )}>
+                      {item.title}
+                    </h3>
+                    {item.notes && (
+                      <p className="text-sm opacity-80 line-clamp-4 font-medium italic">
+                        "{item.notes}"
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-auto pt-4 flex items-center justify-between border-t border-black/5">
+                    <div className="flex gap-1">
+                      <Badge variant="outline" className="text-[9px] border-black/20 uppercase px-1">
+                        {item.type}
+                      </Badge>
+                      {item.mediaType && (
+                        <Badge variant="secondary" className="text-[9px] border-black/20 uppercase px-1">
+                          {item.mediaType}
+                        </Badge>
+                      )}
+                    </div>
+                    {item.dueDate && (
+                      <span className="text-[10px] font-bold opacity-60">
+                        {new Date(item.dueDate).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })}
+        
+        {items.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
+            <p className="text-2xl font-black uppercase">Your board is empty</p>
+            <p className="font-mono">Pin your first note to get started</p>
+          </div>
+        )}
+      </div>
+    </main>
+  )
+}

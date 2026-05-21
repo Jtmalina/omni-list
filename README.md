@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OmniList 📝
 
-## Getting Started
+OmniList is a modern, visual task and media tracking application built with Next.js 15, Prisma, and Supabase. It features a unique **Post-it Style** interface for managing todo lists, making organization feel more tactile and interactive.
 
-First, run the development server:
+## ✨ Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **OAuth Authentication:** Secure login via GitHub and Google using Auth.js (NextAuth v5).
+- **Post-it Style UI:** A creative grid layout where tasks are displayed as colorful, interactive sticky notes.
+- **Multi-List Management:** Create separate boards for different projects or categories.
+- **Responsive Design:** Built with Tailwind CSS and shadcn/ui for a seamless experience across devices.
+- **Server Actions:** Fast, type-safe data mutations using Next.js Server Actions.
+- **PostgreSQL Backend:** Scalable data storage powered by Supabase.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Getting Started
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Node.js:** v20.10.0 or higher
+- **npm:** v8.0.0 or higher
+- **PostgreSQL:** (Local or via Supabase)
+- **Docker:** (Optional, for local Supabase development)
 
-## Learn More
+### Setup Instructions
 
-To learn more about Next.js, take a look at the following resources:
+1. **Clone the repository:**
+   ```bash
+   git clone <your-repo-url>
+   cd omni-list
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Configure Environment Variables:**
+   Create a `.env` file in the root directory and add the following:
+   ```env
+   # Database (Supabase URI)
+   DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
 
-## Deploy on Vercel
+   # Auth.js Secrets
+   AUTH_SECRET="your-auth-secret" # Generate with: npx auth secret
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   # OAuth Credentials
+   AUTH_GITHUB_ID="your-github-client-id"
+   AUTH_GITHUB_SECRET="your-github-client-secret"
+   AUTH_GOOGLE_ID="your-google-client-id"
+   AUTH_GOOGLE_SECRET="your-google-client-secret"
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Initialize the Database:**
+   ```bash
+   npx prisma db push
+   npx prisma db seed
+   ```
+
+5. **Run the Development Server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) to see the application.
+
+## 🛠 Tech Stack
+
+- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
+- **Database:** [PostgreSQL](https://www.postgresql.org/) (via [Supabase](https://supabase.com/))
+- **ORM:** [Prisma](https://www.prisma.io/)
+- **Auth:** [Auth.js v5](https://authjs.dev/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- **Icons:** [Lucide React](https://lucide.dev/)
+
+## 📄 License
+
+This project is licensed under the MIT License.
