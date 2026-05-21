@@ -23,11 +23,24 @@ export async function createItem(data: {
   type: ItemType
   mediaType?: MediaType
   dueDate?: Date
+  mediaMetadata?: {
+    posterPath?: string
+    rating?: number
+    externalId?: string
+    streamingInfo?: any
+  }
 }) {
   await verifyListOwnership(data.listId)
+  const { mediaMetadata, ...itemData } = data
+  
   await prisma.item.create({
     data: {
-      ...data,
+      ...itemData,
+      media: mediaMetadata ? {
+        create: {
+          ...mediaMetadata
+        }
+      } : undefined
     },
   })
   revalidatePath(`/list/${data.listId}`)
@@ -37,6 +50,9 @@ export async function getItems(listId: string) {
   await verifyListOwnership(listId)
   return await prisma.item.findMany({
     where: { listId },
+    include: {
+      media: true
+    },
     orderBy: { createdAt: 'desc' },
   })
 }

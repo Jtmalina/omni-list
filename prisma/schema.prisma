@@ -97,6 +97,17 @@ model Item {
   mediaType MediaType?
   listId    String
   list      List       @relation(fields: [listId], references: [id], onDelete: Cascade)
+  media     MediaMetadata?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+}
+
+model MediaMetadata {
+  id            String  @id @default(cuid())
+  itemId        String  @unique
+  item          Item    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  posterPath    String?
+  rating        Float?
+  externalId    String?
+  streamingInfo Json?
 }

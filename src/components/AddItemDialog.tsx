@@ -21,6 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import MediaSearch from './MediaSearch'
+import { MediaSearchResult } from '@/lib/media-api'
+import Image from 'next/image'
+import { X } from 'lucide-react'
+import { fetchStreamingInfoAction } from '@/actions/media'
 
 export default function AddItemDialog({ listId }: { listId: string }) {
   const [open, setOpen] = useState(false)
@@ -32,11 +37,20 @@ export default function AddItemDialog({ listId }: { listId: string }) {
   const [mediaType, setMediaType] = useState<MediaType | undefined>(undefined)
   const [dueDate, setDueDate] = useState('')
 
+  // Media specific state
+  const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title) return
 
     setLoading(true)
+    
+    let streamingInfo = null
+    if (selectedMedia) {
+      streamingInfo = await fetchStreamingInfoAction(selectedMedia.id, selectedMedia.mediaType)
+    }
+
     await createItem({
       title,
       notes: notes || undefined,
@@ -44,6 +58,12 @@ export default function AddItemDialog({ listId }: { listId: string }) {
       type,
       mediaType: type === ItemType.MEDIA ? mediaType : undefined,
       dueDate: dueDate ? new Date(dueDate) : undefined,
+      mediaMetadata: selectedMedia ? {
+        posterPath: selectedMedia.posterPath || undefined,
+        rating: selectedMedia.voteAverage,
+        externalId: selectedMedia.id,
+        streamingInfo: streamingInfo,
+      } : undefined
     })
     setLoading(false)
     setOpen(false)
@@ -56,6 +76,14 @@ export default function AddItemDialog({ listId }: { listId: string }) {
     setType(ItemType.TASK)
     setMediaType(undefined)
     setDueDate('')
+    setSelectedMedia(null)
+  }
+
+  const handleMediaSelect = (result: MediaSearchResult) => {
+    setSelectedMedia(result)
+    setTitle(result.title)
+    setNotes(result.overview)
+    setMediaType(result.mediaType === 'movie' ? MediaType.MOVIE : MediaType.SHOW)
   }
 
   return (
@@ -69,6 +97,59 @@ export default function AddItemDialog({ listId }: { listId: string }) {
             <DialogTitle>Add New Item</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select value={type} onValueChange={(v) => {
+                setType(v as ItemType)
+                if (v === ItemType.TASK) setSelectedMedia(null)
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ItemType.TASK}>Task</SelectItem>
+                  <SelectItem value={ItemType.MEDIA}>Media</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {type === ItemType.MEDIA && !selectedMedia && (
+              <div className="space-y-2">
+                <Label>Search Media</Label>
+                <MediaSearch onSelect={handleMediaSelect} />
+              </div>
+            )}
+
+            {selectedMedia && (
+              <div className="flex gap-4 p-3 bg-muted rounded-lg relative">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm"
+                  onClick={() => setSelectedMedia(null)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+                <div className="relative h-20 w-14 flex-shrink-0 rounded overflow-hidden">
+                  {selectedMedia.posterPath && (
+                    <Image
+                      src={selectedMedia.posterPath}
+                      alt={selectedMedia.title}
+                      fill
+                      className="object-cover"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-bold text-sm truncate">{selectedMedia.title}</div>
+                  <div className="text-xs text-muted-foreground capitalize">
+                    {selectedMedia.mediaType} • {new Date(selectedMedia.releaseDate).getFullYear()}
+                  </div>
+                  <div className="text-xs font-bold mt-1">★ {selectedMedia.voteAverage.toFixed(1)}</div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
               <Input
@@ -86,40 +167,6 @@ export default function AddItemDialog({ listId }: { listId: string }) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Type</Label>
-                <Select value={type} onValueChange={(v) => setType(v as ItemType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ItemType.TASK}>Task</SelectItem>
-                    <SelectItem value={ItemType.MEDIA}>Media</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {type === ItemType.MEDIA && (
-                <div className="space-y-2">
-                  <Label>Media Type</Label>
-                  <Select
-                    value={mediaType}
-                    onValueChange={(v) => setMediaType(v as MediaType)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={MediaType.MOVIE}>Movie</SelectItem>
-                      <SelectItem value={MediaType.SHOW}>Show</SelectItem>
-                      <SelectItem value={MediaType.GAME}>Game</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">
