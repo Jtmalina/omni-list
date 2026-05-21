@@ -30,20 +30,25 @@ export async function createItem(data: {
     streamingInfo?: any
   }
 }) {
-  await verifyListOwnership(data.listId)
-  const { mediaMetadata, ...itemData } = data
-  
-  await prisma.item.create({
-    data: {
-      ...itemData,
-      media: mediaMetadata ? {
-        create: {
-          ...mediaMetadata
-        }
-      } : undefined
-    },
-  })
-  revalidatePath(`/list/${data.listId}`)
+  try {
+    await verifyListOwnership(data.listId)
+    const { mediaMetadata, ...itemData } = data
+    
+    await prisma.item.create({
+      data: {
+        ...itemData,
+        media: mediaMetadata ? {
+          create: {
+            ...mediaMetadata
+          }
+        } : undefined
+      },
+    })
+    revalidatePath(`/list/${data.listId}`)
+  } catch (error) {
+    console.error('Error creating item:', error)
+    throw error
+  }
 }
 
 export async function getItems(listId: string) {

@@ -43,3 +43,8 @@ next-env.d.ts
 # database
 *.db
 *.db-journal
+
+# testing artifacts
+/playwright-report/
+/test-results/
+/test-results/
