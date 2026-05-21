@@ -68,9 +68,7 @@ export default function AddListDialog() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ListType.TODO}>Basic Todo (Post-it Style)</SelectItem>
-                  <SelectItem value={ListType.MEDIA} disabled>
-                    Media Tracker (Coming Soon)
-                  </SelectItem>
+                  <SelectItem value={ListType.MEDIA}>Media Tracker</SelectItem>
                 </SelectContent>
               </Select>
             </div>
