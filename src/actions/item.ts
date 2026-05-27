@@ -1,7 +1,7 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { ItemStatus, ItemType, MediaType } from '@prisma/client'
+import { ItemStatus, ItemType, MediaType, Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 
@@ -27,7 +27,7 @@ export async function createItem(data: {
     posterPath?: string
     rating?: number
     externalId?: string
-    streamingInfo?: any
+    streamingInfo?: Record<string, unknown>
   }
 }) {
   try {
@@ -39,7 +39,10 @@ export async function createItem(data: {
         ...itemData,
         media: mediaMetadata ? {
           create: {
-            ...mediaMetadata
+            posterPath: mediaMetadata.posterPath,
+            rating: mediaMetadata.rating,
+            externalId: mediaMetadata.externalId,
+            streamingInfo: mediaMetadata.streamingInfo as Prisma.InputJsonValue | undefined,
           }
         } : undefined
       },
