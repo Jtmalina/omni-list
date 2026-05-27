@@ -1,4 +1,16 @@
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
+const RAWG_BASE_URL = 'https://api.rawg.io/api'
+
+export interface GameSearchResult {
+  id: string
+  title: string
+  overview: string
+  posterPath: string | null
+  releaseDate: string
+  mediaType: 'game'
+  rating: number
+  metacritic: number | null
+}
 
 export interface MediaSearchResult {
   id: string
@@ -50,6 +62,46 @@ export async function searchMedia(query: string): Promise<MediaSearchResult[]> {
       }))
   } catch (error) {
     console.error('TMDB Search Fetch Failure:', error)
+    throw error
+  }
+}
+
+export async function searchGames(query: string): Promise<GameSearchResult[]> {
+  const key = process.env.RAWG_API_KEY?.trim().replace(/^["']|["']$/g, '')
+
+  if (!key || key === 'your-rawg-api-key-here') {
+    console.warn('RAWG API Key is missing or default.')
+    return []
+  }
+
+  try {
+    const response = await fetch(
+      `${RAWG_BASE_URL}/games?key=${encodeURIComponent(key)}&search=${encodeURIComponent(query)}&page_size=10`,
+      {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+      }
+    )
+
+    if (!response.ok) {
+      const errorBody = await response.text()
+      console.error(`RAWG Search Error: ${response.status}`, errorBody)
+      throw new Error(`RAWG returned ${response.status}: ${errorBody}`)
+    }
+
+    const data = await response.json()
+    return (data.results ?? []).map((r: any) => ({
+      id: r.id.toString(),
+      title: r.name,
+      overview: (r.genres as any[] ?? []).map((g: any) => g.name).join(', '),
+      posterPath: r.background_image ?? null,
+      releaseDate: r.released ?? '',
+      mediaType: 'game' as const,
+      rating: r.rating ?? 0,
+      metacritic: r.metacritic ?? null,
+    }))
+  } catch (error) {
+    console.error('RAWG Search Fetch Failure:', error)
     throw error
   }
 }

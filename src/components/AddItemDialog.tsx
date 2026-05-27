@@ -22,78 +22,134 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import MediaSearch from './MediaSearch'
-import { MediaSearchResult } from '@/lib/media-api'
+import GameSearch from './GameSearch'
+import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
-import { X } from 'lucide-react'
+import { X, Gamepad2 } from 'lucide-react'
 import { fetchStreamingInfoAction } from '@/actions/media'
 import { format } from 'date-fns'
 
-export default function AddItemDialog({ listId, initialDate, onOpenChange }: { listId: string, initialDate?: Date, onOpenChange?: (open: boolean) => void }) {
+type ItemMode = 'task' | 'film' | 'game'
+
+export default function AddItemDialog({
+  listId,
+  initialDate,
+  onOpenChange,
+}: {
+  listId: string
+  initialDate?: Date
+  onOpenChange?: (open: boolean) => void
+}) {
   const [open, setOpen] = useState(!!initialDate)
   const [loading, setLoading] = useState(false)
-  
+
+  const [itemMode, setItemMode] = useState<ItemMode>('task')
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
-  const [type, setType] = useState<ItemType>(ItemType.TASK)
-  const [mediaType, setMediaType] = useState<MediaType | undefined>(undefined)
   const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
+  const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
+  const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null)
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (onOpenChange) onOpenChange(newOpen)
-    if (!newOpen) {
-      // Small delay to allow transition to finish before resetting
-      setTimeout(resetForm, 300)
-    }
+    if (!newOpen) setTimeout(resetForm, 300)
   }
 
-  // Media specific state
-  const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!title) return
-
-    setLoading(true)
-    
-    let streamingInfo = null
-    if (selectedMedia) {
-      streamingInfo = await fetchStreamingInfoAction(selectedMedia.id, selectedMedia.mediaType)
-    }
-
-    await createItem({
-      title,
-      notes: notes || undefined,
-      listId,
-      type,
-      mediaType: type === ItemType.MEDIA ? mediaType : undefined,
-      dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : undefined,
-      mediaMetadata: selectedMedia ? {
-        posterPath: selectedMedia.posterPath || undefined,
-        rating: selectedMedia.voteAverage,
-        externalId: selectedMedia.id,
-        streamingInfo: streamingInfo ?? undefined,
-      } : undefined
-    })
-    setLoading(false)
-    handleOpenChange(false)
-  }
-
-  const resetForm = () => {
+  const handleModeChange = (mode: ItemMode) => {
+    setItemMode(mode)
+    setSelectedMedia(null)
+    setSelectedGame(null)
     setTitle('')
     setNotes('')
-    setType(ItemType.TASK)
-    setMediaType(undefined)
-    setDueDate('')
-    setSelectedMedia(null)
   }
 
   const handleMediaSelect = (result: MediaSearchResult) => {
     setSelectedMedia(result)
     setTitle(result.title)
     setNotes(result.overview)
-    setMediaType(result.mediaType === 'movie' ? MediaType.MOVIE : MediaType.SHOW)
   }
+
+  const handleGameSelect = (result: GameSearchResult) => {
+    setSelectedGame(result)
+    setTitle(result.title)
+    setNotes(result.overview)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title) return
+
+    setLoading(true)
+
+    const effectiveType = itemMode === 'task' ? ItemType.TASK : ItemType.MEDIA
+    const effectiveMediaType =
+      itemMode === 'game' ? MediaType.GAME :
+      selectedMedia?.mediaType === 'movie' ? MediaType.MOVIE :
+      selectedMedia?.mediaType === 'tv' ? MediaType.SHOW :
+      undefined
+
+    let mediaMetadata: Parameters<typeof createItem>[0]['mediaMetadata'] = undefined
+
+    if (selectedMedia) {
+      const streamingInfo = await fetchStreamingInfoAction(selectedMedia.id, selectedMedia.mediaType)
+      mediaMetadata = {
+        posterPath: selectedMedia.posterPath ?? undefined,
+        rating: selectedMedia.voteAverage,
+        externalId: selectedMedia.id,
+        streamingInfo: streamingInfo ?? undefined,
+      }
+    } else if (selectedGame) {
+      mediaMetadata = {
+        posterPath: selectedGame.posterPath ?? undefined,
+        rating: selectedGame.rating,
+        externalId: selectedGame.id,
+        streamingInfo: selectedGame.metacritic != null
+          ? { metacritic: selectedGame.metacritic }
+          : undefined,
+      }
+    }
+
+    await createItem({
+      title,
+      notes: notes || undefined,
+      listId,
+      type: effectiveType,
+      mediaType: effectiveMediaType,
+      dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : undefined,
+      mediaMetadata,
+    })
+
+    setLoading(false)
+    handleOpenChange(false)
+  }
+
+  const resetForm = () => {
+    setItemMode('task')
+    setTitle('')
+    setNotes('')
+    setDueDate('')
+    setSelectedMedia(null)
+    setSelectedGame(null)
+  }
+
+  const selectedPreview = selectedMedia
+    ? {
+        posterPath: selectedMedia.posterPath,
+        title: selectedMedia.title,
+        subtitle: `${selectedMedia.mediaType} • ${new Date(selectedMedia.releaseDate).getFullYear()}`,
+        score: `★ ${selectedMedia.voteAverage.toFixed(1)}`,
+        icon: null,
+      }
+    : selectedGame
+    ? {
+        posterPath: selectedGame.posterPath,
+        title: selectedGame.title,
+        subtitle: `Game • ${selectedGame.releaseDate ? new Date(selectedGame.releaseDate).getFullYear() : '—'}`,
+        score: selectedGame.metacritic ? `MC ${selectedGame.metacritic}` : `★ ${selectedGame.rating.toFixed(1)}`,
+        icon: <Gamepad2 className="h-5 w-5 opacity-30" />,
+      }
+    : null
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -108,53 +164,68 @@ export default function AddItemDialog({ listId, initialDate, onOpenChange }: { l
           <div className="py-4 space-y-4">
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={type} onValueChange={(v) => {
-                setType(v as ItemType)
-                if (v === ItemType.TASK) setSelectedMedia(null)
-              }}>
+              <Select value={itemMode} onValueChange={(v) => handleModeChange(v as ItemMode)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ItemType.TASK}>Task</SelectItem>
-                  <SelectItem value={ItemType.MEDIA}>Media</SelectItem>
+                  <SelectItem value="task">Task</SelectItem>
+                  <SelectItem value="film">Movie / TV</SelectItem>
+                  <SelectItem value="game">Game</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {type === ItemType.MEDIA && !selectedMedia && (
+            {itemMode === 'film' && !selectedMedia && (
               <div className="space-y-2">
-                <Label>Search Media</Label>
+                <Label>Search Movie / TV</Label>
                 <MediaSearch onSelect={handleMediaSelect} />
               </div>
             )}
 
-            {selectedMedia && (
+            {itemMode === 'game' && !selectedGame && (
+              <div className="space-y-2">
+                <Label>Search Game</Label>
+                <GameSearch onSelect={handleGameSelect} />
+              </div>
+            )}
+
+            {selectedPreview && (
               <div className="flex gap-4 p-3 bg-muted rounded-lg relative">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm"
-                  onClick={() => setSelectedMedia(null)}
+                  onClick={() => {
+                    setSelectedMedia(null)
+                    setSelectedGame(null)
+                    setTitle('')
+                    setNotes('')
+                  }}
                 >
                   <X className="h-3 w-3" />
                 </Button>
-                <div className="relative h-20 w-14 flex-shrink-0 rounded overflow-hidden">
-                  {selectedMedia.posterPath && (
+                <div className="relative h-20 w-14 flex-shrink-0 rounded overflow-hidden bg-muted">
+                  {selectedPreview.posterPath ? (
                     <Image
-                      src={selectedMedia.posterPath}
-                      alt={selectedMedia.title}
+                      src={selectedPreview.posterPath}
+                      alt={selectedPreview.title}
                       fill
                       className="object-cover"
                     />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      {selectedPreview.icon}
+                    </div>
                   )}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-bold text-sm truncate">{selectedMedia.title}</div>
+                  <div className="font-bold text-sm truncate">{selectedPreview.title}</div>
                   <div className="text-xs text-muted-foreground capitalize">
-                    {selectedMedia.mediaType} • {new Date(selectedMedia.releaseDate).getFullYear()}
+                    {selectedPreview.subtitle}
                   </div>
-                  <div className="text-xs font-bold mt-1">★ {selectedMedia.voteAverage.toFixed(1)}</div>
+                  <div className="text-xs font-bold mt-1">{selectedPreview.score}</div>
                 </div>
               </div>
             )}
@@ -168,7 +239,7 @@ export default function AddItemDialog({ listId, initialDate, onOpenChange }: { l
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>
               <Input

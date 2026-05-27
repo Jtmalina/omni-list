@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
@@ -23,6 +23,10 @@ interface StreamingProvider {
 
 interface StreamingInfo {
   flatrate?: StreamingProvider[]
+}
+
+interface GameInfo {
+  metacritic?: number
 }
 
 interface ListClientViewProps {
@@ -83,8 +87,10 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
       ) : isMediaList ? (
         <div className="space-y-6 max-w-4xl mx-auto">
           {items.map((item) => {
-            const streaming = (item.media?.streamingInfo as unknown as StreamingInfo) || {}
+            const isGame = item.mediaType === 'GAME'
+            const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
             const providers = streaming.flatrate || []
+            const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
 
             return (
               <Card key={item.id} className={cn(
@@ -103,7 +109,9 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                       />
                     ) : (
                       <div className="flex items-center justify-center h-full">
-                        {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> : <Tv className="h-12 w-12 opacity-20" />}
+                        {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> :
+                         item.mediaType === 'GAME' ? <Gamepad2 className="h-12 w-12 opacity-20" /> :
+                         <Tv className="h-12 w-12 opacity-20" />}
                       </div>
                     )}
                   </div>
@@ -146,13 +154,31 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                     <div className="mt-auto flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
                         {item.status === 'COMPLETED' ? (
-                          <Badge className="bg-green-500 hover:bg-green-600">Finished</Badge>
+                          <Badge className="bg-green-500 hover:bg-green-600">
+                            {isGame ? 'Completed' : 'Finished'}
+                          </Badge>
                         ) : (
-                          <Badge variant="secondary">Currently Watching</Badge>
+                          <Badge variant="secondary">
+                            {isGame ? 'Playing' : 'Currently Watching'}
+                          </Badge>
                         )}
                       </div>
-                      
-                      {providers.length > 0 && (
+
+                      {isGame ? (
+                        gameInfo?.metacritic != null && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Metacritic</span>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded text-sm font-bold",
+                              gameInfo.metacritic >= 80 ? "bg-green-500/10 text-green-600" :
+                              gameInfo.metacritic >= 60 ? "bg-yellow-500/10 text-yellow-600" :
+                              "bg-red-500/10 text-red-600"
+                            )}>
+                              {gameInfo.metacritic}
+                            </span>
+                          </div>
+                        )
+                      ) : providers.length > 0 ? (
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
                           <div className="flex -space-x-2">
@@ -173,7 +199,7 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                             )}
                           </div>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </CardContent>
