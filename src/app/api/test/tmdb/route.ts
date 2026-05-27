@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  if (process.env.NODE_ENV === 'production') {
-    return new NextResponse('Not available in production', { status: 404 })
-  }
+  const raw = process.env.TMDB_API_KEY ?? ''
+  const token = raw.trim().replace(/^["']|["']$/g, '')
 
-  const token = process.env.TMDB_API_KEY?.trim()
+  const tokenInfo = {
+    present: raw.length > 0,
+    rawLength: raw.length,
+    cleanedLength: token.length,
+    startsWithQuote: raw.startsWith('"') || raw.startsWith("'"),
+    endsWithQuote: raw.endsWith('"') || raw.endsWith("'"),
+    prefix: token.slice(0, 4),   // safe — just "eyJ0" for a JWT
+    suffix: token.slice(-4),     // safe — last 4 chars
+  }
 
   try {
     const res = await fetch(
@@ -13,27 +20,24 @@ export async function GET() {
       {
         headers: {
           accept: 'application/json',
-          Authorization: `Bearer ${token ?? ''}`,
+          Authorization: `Bearer ${token}`,
         },
         cache: 'no-store',
       }
     )
     const data = await res.json()
     return NextResponse.json({
-      tokenPresent: !!token,
-      tokenLength: token?.length ?? 0,
+      token: tokenInfo,
       httpStatus: res.status,
       resultCount: data.results?.length ?? 0,
-      firstResult: data.results?.[0]?.title ?? data.results?.[0]?.name ?? null,
+      tmdbError: res.ok ? null : data,
     })
   } catch (e: unknown) {
     const err = e as Error & { cause?: { code?: string; message?: string } }
     return NextResponse.json({
-      tokenPresent: !!token,
-      tokenLength: token?.length ?? 0,
+      token: tokenInfo,
       error: err.message,
       causeCode: err.cause?.code ?? null,
-      causeMessage: err.cause?.message ?? null,
     }, { status: 500 })
   }
 }

@@ -11,8 +11,8 @@ export interface MediaSearchResult {
 }
 
 export async function searchMedia(query: string): Promise<MediaSearchResult[]> {
-  const token = process.env.TMDB_API_KEY?.trim()
-  
+  const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '')
+
   if (!token || token === 'your-tmdb-api-key-here') {
     console.warn('TMDB API Key is missing or default.')
     return []
@@ -55,7 +55,7 @@ export async function searchMedia(query: string): Promise<MediaSearchResult[]> {
 }
 
 export async function getStreamingProviders(mediaId: string, mediaType: 'movie' | 'tv') {
-  const token = process.env.TMDB_API_KEY?.trim()
+  const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '')
   if (!token || token === 'your-tmdb-api-key-here') return null
 
   try {
