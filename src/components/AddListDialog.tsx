@@ -69,6 +69,7 @@ export default function AddListDialog() {
                 <SelectContent>
                   <SelectItem value={ListType.TODO}>Basic Todo (Post-it Style)</SelectItem>
                   <SelectItem value={ListType.MEDIA}>Media Tracker</SelectItem>
+                  <SelectItem value={ListType.CALENDAR}>Calendar View</SelectItem>
                 </SelectContent>
               </Select>
             </div>

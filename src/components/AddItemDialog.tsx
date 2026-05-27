@@ -26,16 +26,26 @@ import { MediaSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
 import { X } from 'lucide-react'
 import { fetchStreamingInfoAction } from '@/actions/media'
+import { format } from 'date-fns'
 
-export default function AddItemDialog({ listId }: { listId: string }) {
-  const [open, setOpen] = useState(false)
+export default function AddItemDialog({ listId, initialDate, onOpenChange }: { listId: string, initialDate?: Date, onOpenChange?: (open: boolean) => void }) {
+  const [open, setOpen] = useState(!!initialDate)
   const [loading, setLoading] = useState(false)
   
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [type, setType] = useState<ItemType>(ItemType.TASK)
   const [mediaType, setMediaType] = useState<MediaType | undefined>(undefined)
-  const [dueDate, setDueDate] = useState('')
+  const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen)
+    if (onOpenChange) onOpenChange(newOpen)
+    if (!newOpen) {
+      // Small delay to allow transition to finish before resetting
+      setTimeout(resetForm, 300)
+    }
+  }
 
   // Media specific state
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
@@ -57,17 +67,16 @@ export default function AddItemDialog({ listId }: { listId: string }) {
       listId,
       type,
       mediaType: type === ItemType.MEDIA ? mediaType : undefined,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
+      dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : undefined,
       mediaMetadata: selectedMedia ? {
         posterPath: selectedMedia.posterPath || undefined,
         rating: selectedMedia.voteAverage,
         externalId: selectedMedia.id,
-        streamingInfo: streamingInfo,
+        streamingInfo: streamingInfo ?? undefined,
       } : undefined
     })
     setLoading(false)
-    setOpen(false)
-    resetForm()
+    handleOpenChange(false)
   }
 
   const resetForm = () => {
@@ -87,7 +96,7 @@ export default function AddItemDialog({ listId }: { listId: string }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>Add Item</Button>
       </DialogTrigger>

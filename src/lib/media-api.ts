@@ -26,6 +26,7 @@ export async function searchMedia(query: string): Promise<MediaSearchResult[]> {
           accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        cache: 'no-store',
       }
     )
 
@@ -65,6 +66,7 @@ export async function getStreamingProviders(mediaId: string, mediaType: 'movie' 
           accept: 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        cache: 'no-store',
       }
     )
 

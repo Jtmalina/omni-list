@@ -58,6 +58,7 @@ model VerificationToken {
 enum ListType {
   TODO
   MEDIA
+  CALENDAR
 }
 
 model List {
