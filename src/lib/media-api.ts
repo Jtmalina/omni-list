@@ -10,6 +10,9 @@ export interface GameSearchResult {
   mediaType: 'game'
   rating: number
   metacritic: number | null
+  esrb: string | null
+  platforms: string[]
+  stores: string[]
 }
 
 export interface MediaSearchResult {
@@ -99,10 +102,35 @@ export async function searchGames(query: string): Promise<GameSearchResult[]> {
       mediaType: 'game' as const,
       rating: r.rating ?? 0,
       metacritic: r.metacritic ?? null,
+      esrb: r.esrb_rating?.name ?? null,
+      platforms: (r.platforms as any[] ?? []).map((p: any) => p.platform.name as string),
+      stores: (r.stores as any[] ?? []).map((s: any) => s.store.name as string),
     }))
   } catch (error) {
     console.error('RAWG Search Fetch Failure:', error)
     throw error
+  }
+}
+
+export async function getGameDetails(gameId: string): Promise<{ description: string } | null> {
+  const key = process.env.RAWG_API_KEY?.trim().replace(/^["']|["']$/g, '')
+  if (!key || key === 'your-rawg-api-key-here') return null
+
+  try {
+    const response = await fetch(
+      `${RAWG_BASE_URL}/games/${gameId}?key=${encodeURIComponent(key)}`,
+      {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+      }
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+    const raw: string = data.description_raw ?? ''
+    return { description: raw.length > 1000 ? raw.slice(0, 1000) + '…' : raw }
+  } catch (error) {
+    console.error('RAWG Game Details Fetch Failure:', error)
+    return null
   }
 }
 

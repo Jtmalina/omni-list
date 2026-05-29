@@ -16,8 +16,23 @@ model User {
   accounts      Account[]
   sessions      Session[]
   lists         List[]
+  servarrConfig ServarrConfig?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+model ServarrConfig {
+  id                     String  @id @default(cuid())
+  userId                 String  @unique
+  user                   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  radarrUrl              String?
+  radarrApiKey           String?
+  radarrRootFolder       String? @default("/movies")
+  radarrQualityProfileId Int?    @default(1)
+  sonarrUrl              String?
+  sonarrApiKey           String?
+  sonarrRootFolder       String? @default("/tv")
+  sonarrQualityProfileId Int?    @default(1)
 }
 
 model Account {

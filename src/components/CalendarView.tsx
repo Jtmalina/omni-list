@@ -17,18 +17,32 @@ import {
 import { ChevronLeft, ChevronRight, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Item, ItemStatus } from '@prisma/client'
+import { Item, ItemStatus, MediaMetadata } from '@prisma/client'
 import { updateItemStatus, deleteItem } from '@/actions/item'
+import ItemDetailsDialog from './ItemDetailsDialog'
 
-interface CalendarViewProps {
-  items: Item[]
-  listId: string
-  onAddClick: (date: Date) => void
+type ItemWithMedia = Item & {
+  media?: MediaMetadata | null
 }
 
-export default function CalendarView({ items, listId, onAddClick }: CalendarViewProps) {
+interface CalendarViewProps {
+  items: ItemWithMedia[]
+  listId: string
+  onAddClick: (date: Date) => void
+  isRadarrEnabled?: boolean
+  isSonarrEnabled?: boolean
+}
+
+export default function CalendarView({ 
+  items, 
+  listId, 
+  onAddClick,
+  isRadarrEnabled,
+  isSonarrEnabled 
+}: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isPending, startTransition] = useTransition()
+  const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
 
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1))
@@ -43,14 +57,16 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
   const scheduledItems = items.filter((item) => item.dueDate)
   const unscheduledItems = items.filter((item) => !item.dueDate)
 
-  const toggleStatus = (item: Item) => {
+  const toggleStatus = (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation()
     const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
     startTransition(async () => {
       await updateItemStatus(item.id, nextStatus, listId)
     })
   }
 
-  const handleDelete = (item: Item) => {
+  const handleDelete = (item: Item, e: React.MouseEvent) => {
+    e.stopPropagation()
     if (confirm('Delete this item?')) {
       startTransition(async () => {
         await deleteItem(item.id, listId)
@@ -58,8 +74,20 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
     }
   }
 
+  const handleItemClick = (item: ItemWithMedia) => {
+    setSelectedItem(item)
+  }
+
   return (
     <div className="space-y-4">
+      <ItemDetailsDialog
+        item={selectedItem}
+        listId={listId}
+        isOpen={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        isRadarrEnabled={isRadarrEnabled}
+        isSonarrEnabled={isSonarrEnabled}
+      />
       <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
         {/* Calendar Header */}
         <div className="flex items-center justify-between p-4 border-b">
@@ -125,16 +153,17 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
                   {dayItems.map((item) => (
                     <div
                       key={item.id}
+                      onClick={() => handleItemClick(item)}
                       className={cn(
-                        "group/item text-[10px] p-1 rounded border flex items-center gap-1",
+                        "group/item text-[10px] p-1 rounded border flex items-center gap-1 cursor-pointer transition-colors",
                         item.status === 'COMPLETED'
-                          ? "bg-muted text-muted-foreground"
-                          : "bg-primary/10 border-primary/20 text-primary"
+                          ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                          : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
                       )}
                     >
                       <button
                         className="flex-shrink-0 leading-none"
-                        onClick={() => toggleStatus(item)}
+                        onClick={(e) => toggleStatus(item, e)}
                         disabled={isPending}
                         title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                       >
@@ -144,14 +173,14 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
                         )} />
                       </button>
                       <span className={cn(
-                        "truncate flex-1",
+                        "truncate flex-1 font-medium",
                         item.status === 'COMPLETED' && "line-through"
                       )}>
                         {item.title}
                       </span>
                       <button
                         className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                        onClick={() => handleDelete(item)}
+                        onClick={(e) => handleDelete(item, e)}
                         disabled={isPending}
                         title="Delete"
                       >
@@ -174,15 +203,16 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
             {unscheduledItems.map((item) => (
               <div
                 key={item.id}
+                onClick={() => handleItemClick(item)}
                 className={cn(
-                  "group/item flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border",
+                  "group/item flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border cursor-pointer transition-colors",
                   item.status === 'COMPLETED'
-                    ? "bg-muted text-muted-foreground"
-                    : "bg-background"
+                    ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                    : "bg-background hover:bg-muted/20"
                 )}
               >
                 <button
-                  onClick={() => toggleStatus(item)}
+                  onClick={(e) => toggleStatus(item, e)}
                   disabled={isPending}
                   title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                 >
@@ -191,12 +221,12 @@ export default function CalendarView({ items, listId, onAddClick }: CalendarView
                     item.status === 'COMPLETED' && "bg-current"
                   )} />
                 </button>
-                <span className={cn(item.status === 'COMPLETED' && "line-through")}>
+                <span className={cn("font-medium", item.status === 'COMPLETED' && "line-through")}>
                   {item.title}
                 </span>
                 <button
                   className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
-                  onClick={() => handleDelete(item)}
+                  onClick={(e) => handleDelete(item, e)}
                   disabled={isPending}
                   title="Delete"
                 >

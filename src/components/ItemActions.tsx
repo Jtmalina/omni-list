@@ -1,20 +1,28 @@
 'use client'
 
 import { updateItemStatus, deleteItem } from '@/actions/item'
-import { ItemStatus } from '@prisma/client'
+import { downloadMediaAction } from '@/actions/servarr'
+import { ItemStatus, MediaType } from '@prisma/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
+import { Trash2, CloudDownload } from 'lucide-react'
 import { useTransition } from 'react'
+import { cn } from '@/lib/utils'
 
 export default function ItemActions({
   id,
   status,
   listId,
+  mediaType,
+  isRadarrEnabled = false,
+  isSonarrEnabled = false,
 }: {
   id: string
   status: ItemStatus
   listId: string
+  mediaType?: MediaType | null
+  isRadarrEnabled?: boolean
+  isSonarrEnabled?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
 
@@ -33,8 +41,39 @@ export default function ItemActions({
     }
   }
 
+  const handleDownload = () => {
+    startTransition(async () => {
+      const result = await downloadMediaAction(id)
+      if (result.success) {
+        alert(result.message)
+      } else {
+        alert(`Error: ${result.error}`)
+      }
+    })
+  }
+
+  const isMovie = mediaType === MediaType.MOVIE
+  const isShow = mediaType === MediaType.SHOW
+  const canDownload = (isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled)
+  const isDownloadableType = isMovie || isShow
+
   return (
     <div className="flex items-center gap-2">
+      {isDownloadableType && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDownload}
+          disabled={isPending || !canDownload}
+          title={!canDownload ? "Configure Radarr/Sonarr in settings to download" : "Send to Radarr/Sonarr"}
+          className={cn(
+            "text-primary hover:text-primary hover:bg-primary/10",
+            !canDownload && "opacity-30 grayscale cursor-not-allowed"
+          )}
+        >
+          <CloudDownload className="h-4 w-4" />
+        </Button>
+      )}
       <Checkbox
         checked={status === ItemStatus.COMPLETED}
         onCheckedChange={toggleStatus}

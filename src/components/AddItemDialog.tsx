@@ -25,8 +25,8 @@ import MediaSearch from './MediaSearch'
 import GameSearch from './GameSearch'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
-import { X, Gamepad2 } from 'lucide-react'
-import { fetchStreamingInfoAction } from '@/actions/media'
+import { X, Gamepad2, Loader2 } from 'lucide-react'
+import { fetchStreamingInfoAction, fetchGameDetailsAction } from '@/actions/media'
 import { format } from 'date-fns'
 
 type ItemMode = 'task' | 'film' | 'game'
@@ -49,6 +49,7 @@ export default function AddItemDialog({
   const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
   const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null)
+  const [fetchingDetails, setFetchingDetails] = useState(false)
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
@@ -60,6 +61,7 @@ export default function AddItemDialog({
     setItemMode(mode)
     setSelectedMedia(null)
     setSelectedGame(null)
+    setFetchingDetails(false)
     setTitle('')
     setNotes('')
   }
@@ -70,10 +72,14 @@ export default function AddItemDialog({
     setNotes(result.overview)
   }
 
-  const handleGameSelect = (result: GameSearchResult) => {
+  const handleGameSelect = async (result: GameSearchResult) => {
     setSelectedGame(result)
     setTitle(result.title)
-    setNotes(result.overview)
+    setNotes(result.overview) // genres as placeholder while details load
+    setFetchingDetails(true)
+    const details = await fetchGameDetailsAction(result.id)
+    setFetchingDetails(false)
+    if (details?.description) setNotes(details.description)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,9 +110,12 @@ export default function AddItemDialog({
         posterPath: selectedGame.posterPath ?? undefined,
         rating: selectedGame.rating,
         externalId: selectedGame.id,
-        streamingInfo: selectedGame.metacritic != null
-          ? { metacritic: selectedGame.metacritic }
-          : undefined,
+        streamingInfo: {
+          ...(selectedGame.metacritic != null && { metacritic: selectedGame.metacritic }),
+          ...(selectedGame.esrb && { esrb: selectedGame.esrb }),
+          ...(selectedGame.platforms.length > 0 && { platforms: selectedGame.platforms }),
+          ...(selectedGame.stores.length > 0 && { stores: selectedGame.stores }),
+        },
       }
     }
 
@@ -131,6 +140,7 @@ export default function AddItemDialog({
     setDueDate('')
     setSelectedMedia(null)
     setSelectedGame(null)
+    setFetchingDetails(false)
   }
 
   const selectedPreview = selectedMedia
@@ -139,6 +149,7 @@ export default function AddItemDialog({
         title: selectedMedia.title,
         subtitle: `${selectedMedia.mediaType} • ${new Date(selectedMedia.releaseDate).getFullYear()}`,
         score: `★ ${selectedMedia.voteAverage.toFixed(1)}`,
+        extra: null,
         icon: null,
       }
     : selectedGame
@@ -147,6 +158,10 @@ export default function AddItemDialog({
         title: selectedGame.title,
         subtitle: `Game • ${selectedGame.releaseDate ? new Date(selectedGame.releaseDate).getFullYear() : '—'}`,
         score: selectedGame.metacritic ? `MC ${selectedGame.metacritic}` : `★ ${selectedGame.rating.toFixed(1)}`,
+        extra: [
+          selectedGame.esrb,
+          selectedGame.platforms.slice(0, 3).join(' · '),
+        ].filter(Boolean).join(' | '),
         icon: <Gamepad2 className="h-5 w-5 opacity-30" />,
       }
     : null
@@ -226,6 +241,11 @@ export default function AddItemDialog({
                     {selectedPreview.subtitle}
                   </div>
                   <div className="text-xs font-bold mt-1">{selectedPreview.score}</div>
+                  {selectedPreview.extra && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                      {selectedPreview.extra}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -241,7 +261,10 @@ export default function AddItemDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Label htmlFor="notes" className="flex items-center gap-2">
+                Notes (Optional)
+                {fetchingDetails && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+              </Label>
               <Input
                 id="notes"
                 value={notes}

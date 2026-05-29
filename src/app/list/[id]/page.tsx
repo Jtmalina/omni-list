@@ -6,14 +6,22 @@ import { ChevronLeft } from 'lucide-react'
 import ListDeleteButton from '@/components/ListDeleteButton'
 import { cn } from '@/lib/utils'
 import ListClientView from '@/components/ListClientView'
+import { auth } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ListPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const list = await prisma.list.findUnique({
-    where: { id },
-  })
+  const session = await auth()
+  
+  const [list, config] = await Promise.all([
+    prisma.list.findUnique({
+      where: { id },
+    }),
+    session?.user?.id ? prisma.servarrConfig.findUnique({
+      where: { userId: session.user.id }
+    }) : null
+  ])
 
   if (!list) notFound()
 
@@ -36,7 +44,7 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
         </div>
       </div>
 
-      <ListClientView list={list} items={items} />
+      <ListClientView list={list} items={items} servarrConfig={config} />
     </main>
   )
 }

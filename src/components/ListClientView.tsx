@@ -27,6 +27,9 @@ interface StreamingInfo {
 
 interface GameInfo {
   metacritic?: number
+  esrb?: string
+  platforms?: string[]
+  stores?: string[]
 }
 
 interface ListClientViewProps {
@@ -36,10 +39,19 @@ interface ListClientViewProps {
     type: ListType
   }
   items: ItemWithMedia[]
+  servarrConfig?: {
+    radarrUrl?: string | null
+    radarrApiKey?: string | null
+    sonarrUrl?: string | null
+    sonarrApiKey?: string | null
+  } | null
 }
 
-export default function ListClientView({ list, items }: ListClientViewProps) {
+export default function ListClientView({ list, items, servarrConfig }: ListClientViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+
+  const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
+  const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
 
   const isMediaList = list.type === 'MEDIA'
   const isCalendarList = list.type === 'CALENDAR'
@@ -83,7 +95,13 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
       </div>
 
       {isCalendarList ? (
-        <CalendarView items={items} listId={list.id} onAddClick={handleAddClick} />
+        <CalendarView 
+          items={items} 
+          listId={list.id} 
+          onAddClick={handleAddClick}
+          isRadarrEnabled={isRadarrEnabled}
+          isSonarrEnabled={isSonarrEnabled}
+        />
       ) : isMediaList ? (
         <div className="space-y-6 max-w-4xl mx-auto">
           {items.map((item) => {
@@ -133,10 +151,15 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                             </div>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <Badge variant="outline" className="text-[10px] uppercase">
                             {item.mediaType || 'TASK'}
                           </Badge>
+                          {isGame && gameInfo?.esrb && (
+                            <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                              {gameInfo.esrb}
+                            </Badge>
+                          )}
                           {item.dueDate && (
                             <span className="text-xs text-muted-foreground font-medium italic">
                               Expected: {new Date(item.dueDate).toLocaleDateString()}
@@ -144,12 +167,36 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                           )}
                         </div>
                       </div>
-                      <ItemActions id={item.id} status={item.status} listId={list.id} />
+                      <ItemActions 
+                        id={item.id} 
+                        status={item.status} 
+                        listId={list.id} 
+                        mediaType={item.mediaType} 
+                        isRadarrEnabled={isRadarrEnabled}
+                        isSonarrEnabled={isSonarrEnabled}
+                      />
                     </div>
 
-                    <p className="text-muted-foreground text-sm line-clamp-3 mb-4 flex-1 italic">
+                    <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
                       {item.notes || "No description provided."}
                     </p>
+
+                    {isGame && (gameInfo?.platforms?.length || gameInfo?.stores?.length) ? (
+                      <div className="space-y-1 mb-3 text-xs text-muted-foreground">
+                        {gameInfo.platforms && gameInfo.platforms.length > 0 && (
+                          <div className="flex items-start gap-1.5 flex-wrap">
+                            <span className="font-semibold uppercase text-[10px] shrink-0 mt-0.5">Platforms:</span>
+                            <span className="truncate">{gameInfo.platforms.join(' · ')}</span>
+                          </div>
+                        )}
+                        {gameInfo.stores && gameInfo.stores.length > 0 && (
+                          <div className="flex items-start gap-1.5 flex-wrap">
+                            <span className="font-semibold uppercase text-[10px] shrink-0 mt-0.5">Buy on:</span>
+                            <span>{gameInfo.stores.join(' · ')}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
 
                     <div className="mt-auto flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -228,7 +275,14 @@ export default function ListClientView({ list, items }: ListClientViewProps) {
                 )}>
                   <CardContent className="p-6 flex flex-col h-full">
                     <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                      <ItemActions id={item.id} status={item.status} listId={list.id} />
+                      <ItemActions 
+                        id={item.id} 
+                        status={item.status} 
+                        listId={list.id} 
+                        mediaType={item.mediaType} 
+                        isRadarrEnabled={isRadarrEnabled}
+                        isSonarrEnabled={isSonarrEnabled}
+                      />
                     </div>
 
                     <div className="mt-4 flex-1 overflow-hidden">
