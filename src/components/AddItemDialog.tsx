@@ -25,7 +25,7 @@ import MediaSearch from './MediaSearch'
 import GameSearch from './GameSearch'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
-import { X, Gamepad2, Loader2 } from 'lucide-react'
+import { X, Gamepad2, Loader2, Plus } from 'lucide-react'
 import { fetchStreamingInfoAction, fetchGameDetailsAction } from '@/actions/media'
 import { format } from 'date-fns'
 
@@ -35,10 +35,14 @@ export default function AddItemDialog({
   listId,
   initialDate,
   onOpenChange,
+  buttonVariant = 'default',
+  buttonSize = 'default',
 }: {
   listId: string
   initialDate?: Date
   onOpenChange?: (open: boolean) => void
+  buttonVariant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link'
+  buttonSize?: 'default' | 'sm' | 'lg' | 'icon'
 }) {
   const [open, setOpen] = useState(!!initialDate)
   const [loading, setLoading] = useState(false)
@@ -169,7 +173,9 @@ export default function AddItemDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button>Add Item</Button>
+        <Button variant={buttonVariant} size={buttonSize} title="Add New Item">
+          {buttonSize === 'icon' ? <Plus className="h-5 w-5" /> : 'Add Item'}
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
