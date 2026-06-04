@@ -75,7 +75,7 @@ export default function ItemActions({
     <div className="flex items-center gap-1 sm:gap-2">
       {isDownloadableType && canEdit && (
         <div className="flex items-center gap-1">
-          {mediaStatus?.progress !== null ? (
+          {mediaStatus && mediaStatus.progress !== null ? (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-black animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>{mediaStatus.progress}%</span>
