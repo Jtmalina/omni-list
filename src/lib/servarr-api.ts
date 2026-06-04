@@ -15,20 +15,21 @@ export async function addMovieToRadarr(movie: {
   title: string;
   year: number;
 }, config: ServarrConfig) {
-  const url = config.radarrUrl?.trim().replace(/^["']|["']$/g, '');
+  const baseUrl = config.radarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.radarrApiKey?.trim().replace(/^["']|["']$/g, '');
   const rootFolder = config.radarrRootFolder || '/movies';
   const qualityProfileId = config.radarrQualityProfileId || 1;
 
-  if (!url || !apiKey) {
+  if (!baseUrl || !apiKey) {
     throw new Error('Radarr configuration missing in your settings');
   }
 
-  const response = await fetch(`${url}/api/v3/movie`, {
+  const response = await fetch(`${baseUrl}/api/v3/movie`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Api-Key': apiKey,
+      'User-Agent': 'OmniList-App/1.0', // Helps bypass some bot filters
     },
     body: JSON.stringify({
       title: movie.title,
@@ -55,20 +56,21 @@ export async function addSeriesToSonarr(series: {
   tvdbId: number;
   title: string;
 }, config: ServarrConfig) {
-  const url = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '');
+  const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
   const rootFolder = config.sonarrRootFolder || '/tv';
   const qualityProfileId = config.sonarrQualityProfileId || 1;
 
-  if (!url || !apiKey) {
+  if (!baseUrl || !apiKey) {
     throw new Error('Sonarr configuration missing in your settings');
   }
 
-  const response = await fetch(`${url}/api/v3/series`, {
+  const response = await fetch(`${baseUrl}/api/v3/series`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Api-Key': apiKey,
+      'User-Agent': 'OmniList-App/1.0',
     },
     body: JSON.stringify({
       title: series.title,
