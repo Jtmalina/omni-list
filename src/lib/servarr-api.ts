@@ -94,11 +94,49 @@ export async function addSeriesToSonarr(series: {
   return await response.json();
 }
 
+export async function deleteMovieFromRadarr(radarrId: number, deleteFiles: boolean, config: ServarrConfig) {
+  const baseUrl = config.radarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.radarrApiKey?.trim().replace(/^["']|["']$/g, '');
+
+  if (!baseUrl || !apiKey) throw new Error('Radarr configuration missing');
+
+  const response = await fetch(`${baseUrl}/api/v3/movie/${radarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
+    method: 'DELETE',
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Radarr deletion error: ${error}`);
+  }
+
+  return { success: true };
+}
+
+export async function deleteSeriesFromSonarr(sonarrId: number, deleteFiles: boolean, config: ServarrConfig) {
+  const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
+
+  if (!baseUrl || !apiKey) throw new Error('Sonarr configuration missing');
+
+  const response = await fetch(`${baseUrl}/api/v3/series/${sonarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
+    method: 'DELETE',
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Sonarr deletion error: ${error}`);
+  }
+
+  return { success: true };
+}
+
 export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
   const baseUrl = config.radarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.radarrApiKey?.trim().replace(/^["']|["']$/g, '');
 
-  const defaultStatus = { inLibrary: false, hasFile: false, progress: null };
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null };
   if (!baseUrl || !apiKey) return defaultStatus;
 
   try {
@@ -112,6 +150,7 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
     
     const inLibrary = !!(movieInfo.id && movieInfo.id > 0);
     const hasFile = !!movieInfo.hasFile;
+    const serverId = movieInfo.id || null;
 
     // 2. Check if it's in the download queue
     const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
@@ -135,7 +174,7 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
       }
     }
 
-    return { inLibrary, hasFile, progress };
+    return { inLibrary, hasFile, progress, serverId };
   } catch (error) {
     console.error('Radarr status fetch failed:', error);
     return defaultStatus;
@@ -146,7 +185,7 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
   const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
 
-  const defaultStatus = { inLibrary: false, hasFile: false, progress: null };
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null };
   if (!baseUrl || !apiKey) return defaultStatus;
 
   try {
@@ -164,6 +203,7 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
     const inLibrary = !!(seriesInfo.id && seriesInfo.id > 0);
     const statistics = seriesInfo.statistics;
     const hasFile = statistics ? (statistics.episodeFileCount >= statistics.totalEpisodeCount && statistics.totalEpisodeCount > 0) : false;
+    const serverId = seriesInfo.id || null;
 
     // 2. Check queue
     const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
@@ -185,7 +225,7 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
       }
     }
 
-    return { inLibrary, hasFile, progress };
+    return { inLibrary, hasFile, progress, serverId };
   } catch (error) {
     console.error('Sonarr status fetch failed:', error);
     return defaultStatus;

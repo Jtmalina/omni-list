@@ -1,11 +1,11 @@
 'use client'
 
 import { updateItemStatus, deleteItem } from '@/actions/item'
-import { downloadMediaAction } from '@/actions/servarr'
+import { downloadMediaAction, removeMediaFromServerAction } from '@/actions/servarr'
 import { ItemStatus, MediaType } from '@prisma/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
+import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw, HardDrive } from 'lucide-react'
 import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useMediaStatus } from '@/lib/hooks/useMediaStatus'
@@ -19,6 +19,7 @@ export default function ItemActions({
   isRadarrEnabled = false,
   isSonarrEnabled = false,
   canEdit = true,
+  isOwner = false,
 }: {
   id: string
   status: ItemStatus
@@ -27,6 +28,7 @@ export default function ItemActions({
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
   canEdit?: boolean
+  isOwner?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
   
@@ -70,6 +72,20 @@ export default function ItemActions({
     })
   }
 
+  const handleRemoveFromServer = (deleteFiles: boolean) => {
+    if (!isOwner || !mediaStatus?.serverId) return
+    
+    startTransition(async () => {
+      const result = await removeMediaFromServerAction(id, mediaStatus.serverId!, deleteFiles)
+      if (result.success) {
+        toast.success(result.message)
+        refresh()
+      } else {
+        toast.error(result.error)
+      }
+    })
+  }
+
   const isDownloadableType = isMovie || isShow
 
   return (
@@ -85,15 +101,31 @@ export default function ItemActions({
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>{mediaStatus.progress}%</span>
             </div>
-          ) : mediaStatus?.hasFile ? (
-            <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-600 rounded-md text-[10px] font-black">
-              <CheckCircle2 className="h-3 w-3" />
-              <span className="hidden sm:inline">LIBRARY</span>
-            </div>
           ) : mediaStatus?.inLibrary ? (
-            <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 text-yellow-600 rounded-md text-[10px] font-black">
-              <CheckCircle2 className="h-3 w-3" />
-              <span className="hidden sm:inline">MONITORED</span>
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-black",
+                mediaStatus.hasFile ? "bg-green-500/10 text-green-600" : "bg-yellow-500/10 text-yellow-600"
+              )}>
+                <CheckCircle2 className="h-3 w-3" />
+                <span className="hidden sm:inline">{mediaStatus.hasFile ? 'LIBRARY' : 'MONITORED'}</span>
+              </div>
+              
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Remove from Server"
+                  onClick={() => {
+                    const deleteFiles = confirm('Do you want to delete the actual media files from your hard drive too?')
+                    handleRemoveFromServer(deleteFiles)
+                  }}
+                  disabled={isPending}
+                >
+                  <HardDrive className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           ) : (
             <Button

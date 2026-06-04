@@ -2,7 +2,15 @@
 
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { addMovieToRadarr, addSeriesToSonarr, getTvdbIdFromTmdb, getMovieStatus, getSeriesStatus } from '@/lib/servarr-api'
+import { 
+  addMovieToRadarr, 
+  addSeriesToSonarr, 
+  getTvdbIdFromTmdb, 
+  getMovieStatus, 
+  getSeriesStatus,
+  deleteMovieFromRadarr,
+  deleteSeriesFromSonarr
+} from '@/lib/servarr-api'
 import { MediaType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { encrypt, decrypt } from '@/lib/encryption'
@@ -67,7 +75,7 @@ export async function saveServarrConfigAction(data: {
 }
 
 export async function getMediaStatusAction(itemId: string) {
-  const defaultStatus = { inLibrary: false, hasFile: false, progress: null }
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null }
   
   const session = await auth()
   if (!session?.user?.id) return defaultStatus
@@ -118,6 +126,51 @@ export async function getMediaStatusAction(itemId: string) {
   }
 
   return defaultStatus
+}
+
+export async function removeMediaFromServerAction(itemId: string, serverId: number, deleteFiles: boolean = false) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { servarrConfig: true },
+  })
+
+  if (!user?.servarrConfig) {
+    throw new Error('Please configure your Radarr/Sonarr settings first.')
+  }
+
+  const item = await prisma.item.findUnique({
+    where: { id: itemId },
+    include: { list: true }
+  })
+
+  if (!item) throw new Error('Item not found')
+  
+  // Security check: must be owner to delete from server
+  await verifyListAccess(item.listId, 'OWNER')
+
+  const config = {
+    ...user.servarrConfig,
+    radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
+    sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
+  }
+
+  try {
+    if (item.mediaType === MediaType.MOVIE) {
+      await deleteMovieFromRadarr(serverId, deleteFiles, config)
+      return { success: true, message: `Removed ${item.title} from Radarr` }
+    } else if (item.mediaType === MediaType.SHOW) {
+      await deleteSeriesFromSonarr(serverId, deleteFiles, config)
+      return { success: true, message: `Removed ${item.title} from Sonarr` }
+    }
+  } catch (error: any) {
+    console.error('Removal action error:', error)
+    return { success: false, error: error.message || 'Failed to remove from server' }
+  }
+
+  throw new Error('Unsupported media type for removal')
 }
 
 export async function downloadMediaAction(itemId: string) {

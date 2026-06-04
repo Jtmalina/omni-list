@@ -189,6 +189,7 @@ export default function ListClientView({
                         isRadarrEnabled={isRadarrEnabled}
                         isSonarrEnabled={isSonarrEnabled}
                         canEdit={canEdit}
+                        isOwner={isOwner}
                       />
                     </div>
 
@@ -298,6 +299,7 @@ export default function ListClientView({
                         isRadarrEnabled={isRadarrEnabled}
                         isSonarrEnabled={isSonarrEnabled}
                         canEdit={canEdit}
+                        isOwner={isOwner}
                       />
                     </div>
 
