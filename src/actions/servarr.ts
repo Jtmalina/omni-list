@@ -90,13 +90,6 @@ export async function downloadMediaAction(itemId: string) {
     throw new Error(error.message || 'Decryption failed. Please re-save your settings in the gear icon menu.')
   }
 
-  if (item.mediaType === MediaType.MOVIE && !config.radarrApiKey) {
-    throw new Error('Radarr API Key is missing. Please update your settings.')
-  }
-  if (item.mediaType === MediaType.SHOW && !config.sonarrApiKey) {
-    throw new Error('Sonarr API Key is missing. Please update your settings.')
-  }
-
   const item = await prisma.item.findUnique({
     where: { id: itemId },
     include: {
@@ -107,6 +100,13 @@ export async function downloadMediaAction(itemId: string) {
 
   if (!item || item.list.userId !== session.user.id) {
     throw new Error('Unauthorized or item not found')
+  }
+
+  if (item.mediaType === MediaType.MOVIE && !config.radarrApiKey) {
+    throw new Error('Radarr API Key is missing. Please update your settings.')
+  }
+  if (item.mediaType === MediaType.SHOW && !config.sonarrApiKey) {
+    throw new Error('Sonarr API Key is missing. Please update your settings.')
   }
 
   if (item.type !== 'MEDIA' || !item.media?.externalId) {
