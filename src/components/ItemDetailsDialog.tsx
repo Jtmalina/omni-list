@@ -32,6 +32,7 @@ interface ItemDetailsDialogProps {
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
   canEdit?: boolean
+  isOwner?: boolean
 }
 
 export default function ItemDetailsDialog({
@@ -42,6 +43,7 @@ export default function ItemDetailsDialog({
   isRadarrEnabled,
   isSonarrEnabled,
   canEdit = true,
+  isOwner = false,
 }: ItemDetailsDialogProps) {
   const [isPending, startTransition] = useTransition()
   
@@ -94,6 +96,7 @@ export default function ItemDetailsDialog({
               isRadarrEnabled={isRadarrEnabled}
               isSonarrEnabled={isSonarrEnabled}
               canEdit={canEdit}
+              isOwner={isOwner}
             />
           </div>
         </DialogHeader>
