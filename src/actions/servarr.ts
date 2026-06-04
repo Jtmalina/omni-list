@@ -67,15 +67,17 @@ export async function saveServarrConfigAction(data: {
 }
 
 export async function getMediaStatusAction(itemId: string) {
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null }
+  
   const session = await auth()
-  if (!session?.user?.id) throw new Error('Unauthorized')
+  if (!session?.user?.id) return defaultStatus
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: { servarrConfig: true },
   })
 
-  if (!user?.servarrConfig) return null
+  if (!user?.servarrConfig) return defaultStatus
 
   const item = await prisma.item.findUnique({
     where: { id: itemId },
@@ -85,14 +87,13 @@ export async function getMediaStatusAction(itemId: string) {
     },
   })
 
-  if (!item || !item.media?.externalId) return null
+  if (!item || !item.media?.externalId) return defaultStatus
 
   // Security check: must be owner or have at least view access
-  // (We use verifyListAccess to be safe)
   try {
     await verifyListAccess(item.listId, 'VIEW')
   } catch (e) {
-    return null
+    return defaultStatus
   }
 
   const config = {
@@ -108,15 +109,15 @@ export async function getMediaStatusAction(itemId: string) {
       return await getMovieStatus(parseInt(externalId), config)
     } else if (item.mediaType === MediaType.SHOW) {
       const tvdbId = await getTvdbIdFromTmdb(externalId)
-      if (!tvdbId) return null
+      if (!tvdbId) return defaultStatus
       return await getSeriesStatus(tvdbId, config)
     }
   } catch (error) {
     console.error('Failed to get media status:', error)
-    return null
+    return defaultStatus
   }
 
-  return null
+  return defaultStatus
 }
 
 export async function downloadMediaAction(itemId: string) {

@@ -98,7 +98,8 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
   const baseUrl = config.radarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.radarrApiKey?.trim().replace(/^["']|["']$/g, '');
 
-  if (!baseUrl || !apiKey) return null;
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null };
+  if (!baseUrl || !apiKey) return defaultStatus;
 
   try {
     // 1. Check if it's in the library
@@ -106,11 +107,11 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
       headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
     });
     
-    if (!lookupResponse.ok) return null;
+    if (!lookupResponse.ok) return defaultStatus;
     const movieInfo = await lookupResponse.json();
     
-    const inLibrary = !!movieInfo.id;
-    const hasFile = movieInfo.hasFile;
+    const inLibrary = !!(movieInfo.id && movieInfo.id > 0);
+    const hasFile = !!movieInfo.hasFile;
 
     // 2. Check if it's in the download queue
     const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
@@ -120,7 +121,13 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
     let progress = null;
     if (queueResponse.ok) {
       const queueData = await queueResponse.json();
-      const activeDownload = queueData.records?.find((r: any) => r.tmdbId === tmdbId || r.movieId === movieInfo.id);
+      // Look for a record that matches this movie
+      const activeDownload = queueData.records?.find((r: any) => 
+        (r.movieId && r.movieId === movieInfo.id) || 
+        (r.movie?.tmdbId === tmdbId) ||
+        (r.title?.toLowerCase().includes(movieInfo.title?.toLowerCase()))
+      );
+
       if (activeDownload) {
         progress = activeDownload.size > 0 
           ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
@@ -131,7 +138,7 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
     return { inLibrary, hasFile, progress };
   } catch (error) {
     console.error('Radarr status fetch failed:', error);
-    return null;
+    return defaultStatus;
   }
 }
 
@@ -139,7 +146,8 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
   const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
 
-  if (!baseUrl || !apiKey) return null;
+  const defaultStatus = { inLibrary: false, hasFile: false, progress: null };
+  if (!baseUrl || !apiKey) return defaultStatus;
 
   try {
     // 1. Check if it's in the library
@@ -147,13 +155,13 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
       headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
     });
     
-    if (!lookupResponse.ok) return null;
+    if (!lookupResponse.ok) return defaultStatus;
     const lookupResults = await lookupResponse.json();
-    const seriesInfo = lookupResults[0]; // lookup returns an array
+    const seriesInfo = lookupResults[0]; 
     
-    if (!seriesInfo) return { inLibrary: false, hasFile: false, progress: null };
+    if (!seriesInfo) return defaultStatus;
 
-    const inLibrary = !!seriesInfo.id;
+    const inLibrary = !!(seriesInfo.id && seriesInfo.id > 0);
     const statistics = seriesInfo.statistics;
     const hasFile = statistics ? (statistics.episodeFileCount >= statistics.totalEpisodeCount && statistics.totalEpisodeCount > 0) : false;
 
@@ -165,7 +173,11 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
     let progress = null;
     if (queueResponse.ok) {
       const queueData = await queueResponse.json();
-      const activeDownload = queueData.records?.find((r: any) => r.seriesId === seriesInfo.id);
+      const activeDownload = queueData.records?.find((r: any) => 
+        (r.seriesId && r.seriesId === seriesInfo.id) ||
+        (r.series?.tvdbId === tvdbId)
+      );
+      
       if (activeDownload) {
         progress = activeDownload.size > 0 
           ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
@@ -176,7 +188,7 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
     return { inLibrary, hasFile, progress };
   } catch (error) {
     console.error('Sonarr status fetch failed:', error);
-    return null;
+    return defaultStatus;
   }
 }
 
