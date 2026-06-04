@@ -7,6 +7,7 @@ export interface MediaStatus {
   inLibrary: boolean
   hasFile: boolean
   progress: number | null
+  serverId: number | null
 }
 
 export function useMediaStatus(itemId: string, mediaType: string | null | undefined, enabled: boolean) {
