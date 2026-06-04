@@ -9,6 +9,7 @@ import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw } from 'lucide-
 import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useMediaStatus } from '@/lib/hooks/useMediaStatus'
+import { toast } from 'sonner'
 
 export default function ItemActions({
   id,
@@ -61,10 +62,10 @@ export default function ItemActions({
     startTransition(async () => {
       const result = await downloadMediaAction(id)
       if (result.success) {
-        alert(result.message)
+        toast.success(result.message)
         refresh() // Update status immediately
       } else {
-        alert(`Error: ${result.error}`)
+        toast.error(result.error)
       }
     })
   }
@@ -75,7 +76,11 @@ export default function ItemActions({
     <div className="flex items-center gap-1 sm:gap-2">
       {isDownloadableType && canEdit && (
         <div className="flex items-center gap-1">
-          {mediaStatus && mediaStatus.progress !== null ? (
+          {statusLoading && !mediaStatus ? (
+            <div className="flex items-center justify-center h-8 w-8">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground opacity-50" />
+            </div>
+          ) : mediaStatus && mediaStatus.progress !== null ? (
             <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-black animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />
               <span>{mediaStatus.progress}%</span>
@@ -110,7 +115,13 @@ export default function ItemActions({
             <Button
               variant="ghost"
               size="icon"
-              onClick={refresh}
+              onClick={() => {
+                toast.promise(refresh(), {
+                  loading: 'Updating status...',
+                  success: 'Status updated',
+                  error: 'Could not reach server',
+                })
+              }}
               disabled={statusLoading}
               title="Refresh Status"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
