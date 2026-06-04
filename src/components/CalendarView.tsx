@@ -31,6 +31,7 @@ interface CalendarViewProps {
   onAddClick: (date: Date) => void
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
+  canEdit?: boolean
 }
 
 export default function CalendarView({ 
@@ -38,7 +39,8 @@ export default function CalendarView({
   listId, 
   onAddClick,
   isRadarrEnabled,
-  isSonarrEnabled 
+  isSonarrEnabled,
+  canEdit = true
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isPending, startTransition] = useTransition()
@@ -59,6 +61,7 @@ export default function CalendarView({
 
   const toggleStatus = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (!canEdit) return
     const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
     startTransition(async () => {
       await updateItemStatus(item.id, nextStatus, listId)
@@ -67,6 +70,7 @@ export default function CalendarView({
 
   const handleDelete = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation()
+    if (!canEdit) return
     if (confirm('Delete this item?')) {
       startTransition(async () => {
         await deleteItem(item.id, listId)
@@ -87,6 +91,7 @@ export default function CalendarView({
         onClose={() => setSelectedItem(null)}
         isRadarrEnabled={isRadarrEnabled}
         isSonarrEnabled={isSonarrEnabled}
+        canEdit={canEdit}
       />
       <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
         {/* Calendar Header */}
@@ -139,14 +144,16 @@ export default function CalendarView({
                   )}>
                     {format(day, 'd')}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => onAddClick(day)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => onAddClick(day)}
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
 
                 <div className="space-y-1 overflow-y-auto max-h-[80px] scrollbar-hide">
@@ -164,7 +171,7 @@ export default function CalendarView({
                       <button
                         className="flex-shrink-0 leading-none"
                         onClick={(e) => toggleStatus(item, e)}
-                        disabled={isPending}
+                        disabled={isPending || !canEdit}
                         title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                       >
                         <span className={cn(
@@ -178,14 +185,16 @@ export default function CalendarView({
                       )}>
                         {item.title}
                       </span>
-                      <button
-                        className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                        onClick={(e) => handleDelete(item, e)}
-                        disabled={isPending}
-                        title="Delete"
-                      >
-                        <X className="h-2 w-2" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                          onClick={(e) => handleDelete(item, e)}
+                          disabled={isPending}
+                          title="Delete"
+                        >
+                          <X className="h-2 w-2" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -213,7 +222,7 @@ export default function CalendarView({
               >
                 <button
                   onClick={(e) => toggleStatus(item, e)}
-                  disabled={isPending}
+                  disabled={isPending || !canEdit}
                   title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                 >
                   <span className={cn(
@@ -224,14 +233,16 @@ export default function CalendarView({
                 <span className={cn("font-medium", item.status === 'COMPLETED' && "line-through")}>
                   {item.title}
                 </span>
-                <button
-                  className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
-                  onClick={(e) => handleDelete(item, e)}
-                  disabled={isPending}
-                  title="Delete"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                {canEdit && (
+                  <button
+                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
+                    onClick={(e) => handleDelete(item, e)}
+                    disabled={isPending}
+                    title="Delete"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

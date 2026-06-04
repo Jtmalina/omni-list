@@ -31,6 +31,7 @@ interface ItemDetailsDialogProps {
   onClose: () => void
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
+  canEdit?: boolean
 }
 
 export default function ItemDetailsDialog({
@@ -40,6 +41,7 @@ export default function ItemDetailsDialog({
   onClose,
   isRadarrEnabled,
   isSonarrEnabled,
+  canEdit = true,
 }: ItemDetailsDialogProps) {
   const [isPending, startTransition] = useTransition()
   
@@ -49,6 +51,7 @@ export default function ItemDetailsDialog({
   const isGame = item.mediaType === 'GAME'
 
   const handleDelete = () => {
+    if (!canEdit) return
     if (confirm('Are you sure you want to delete this item?')) {
       startTransition(async () => {
         await deleteItem(item.id, listId)
@@ -58,6 +61,7 @@ export default function ItemDetailsDialog({
   }
 
   const toggleStatus = () => {
+    if (!canEdit) return
     const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
     startTransition(async () => {
       await updateItemStatus(item.id, nextStatus, listId)
@@ -89,6 +93,7 @@ export default function ItemDetailsDialog({
               mediaType={item.mediaType}
               isRadarrEnabled={isRadarrEnabled}
               isSonarrEnabled={isSonarrEnabled}
+              canEdit={canEdit}
             />
           </div>
         </DialogHeader>
@@ -140,10 +145,11 @@ export default function ItemDetailsDialog({
               <span className="text-xs font-bold uppercase text-muted-foreground">Status:</span>
               <Badge 
                 className={cn(
-                  "cursor-pointer transition-colors",
+                  "transition-colors",
+                  canEdit ? "cursor-pointer" : "cursor-default",
                   item.status === 'COMPLETED' ? "bg-green-500 hover:bg-green-600" : "bg-secondary hover:bg-secondary/80"
                 )}
-                onClick={toggleStatus}
+                onClick={canEdit ? toggleStatus : undefined}
               >
                 {item.status}
               </Badge>
@@ -151,17 +157,19 @@ export default function ItemDetailsDialog({
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-between gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isPending}
-            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Item
-          </Button>
+        <DialogFooter className={cn("sm:justify-between gap-2", !canEdit && "sm:justify-end")}>
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDelete}
+              disabled={isPending}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Item
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>

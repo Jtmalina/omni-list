@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { ListType } from '@prisma/client'
+import { verifyListAccess } from '@/lib/permissions'
 
 async function getUserId() {
   const session = await auth()
@@ -25,25 +26,34 @@ export async function createList(title: string, type: ListType = ListType.TODO) 
 
 export async function getLists() {
   const userId = await getUserId()
+  
+  // Get lists owned by user OR shared with user
   return await prisma.list.findMany({
-    where: { userId },
+    where: {
+      OR: [
+        { userId },
+        { sharedWith: { some: { userId } } }
+      ]
+    },
     include: {
       _count: {
         select: { items: true },
       },
+      user: {
+        select: { name: true, email: true }
+      },
+      sharedWith: {
+        where: { userId },
+        select: { accessLevel: true }
+      }
     },
     orderBy: { createdAt: 'desc' },
   })
 }
 
 export async function deleteList(id: string) {
-  const userId = await getUserId()
-  
-  // Verify ownership
-  const list = await prisma.list.findUnique({
-    where: { id, userId }
-  })
-  if (!list) throw new Error('Unauthorized')
+  // Only owner can delete a list
+  await verifyListAccess(id, 'OWNER')
 
   // First delete items in the list
   await prisma.item.deleteMany({

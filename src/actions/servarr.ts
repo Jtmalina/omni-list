@@ -78,11 +78,23 @@ export async function downloadMediaAction(itemId: string) {
     throw new Error('Please configure your Radarr/Sonarr settings first.')
   }
 
-  // Decrypt keys before use
-  const config = {
-    ...user.servarrConfig,
-    radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
-    sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
+  // Decrypt keys before use with error handling
+  let config: any
+  try {
+    config = {
+      ...user.servarrConfig,
+      radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
+      sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
+    }
+  } catch (error: any) {
+    throw new Error(error.message || 'Decryption failed. Please re-save your settings in the gear icon menu.')
+  }
+
+  if (item.mediaType === MediaType.MOVIE && !config.radarrApiKey) {
+    throw new Error('Radarr API Key is missing. Please update your settings.')
+  }
+  if (item.mediaType === MediaType.SHOW && !config.sonarrApiKey) {
+    throw new Error('Sonarr API Key is missing. Please update your settings.')
   }
 
   const item = await prisma.item.findUnique({

@@ -3,6 +3,7 @@ import { LayoutList, ExternalLink, LogOut } from 'lucide-react'
 import { auth, signOut } from '@/lib/auth'
 import { Button } from './ui/button'
 import ServarrSettingsDialog from './ServarrSettingsDialog'
+import FriendsDialog from './FriendsDialog'
 
 export default async function Navbar() {
   const session = await auth()
@@ -20,6 +21,7 @@ export default async function Navbar() {
               <span className="text-sm text-muted-foreground hidden sm:inline-block">
                 {session.user.email}
               </span>
+              <FriendsDialog />
               <ServarrSettingsDialog />
               <form
                 action={async () => {

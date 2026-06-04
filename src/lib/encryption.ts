@@ -28,14 +28,16 @@ export function encrypt(text: string): string {
 export function decrypt(text: string): string {
   try {
     const textParts = text.split(':')
+    if (textParts.length !== 2) throw new Error('Invalid encrypted text format')
+    
     const iv = Buffer.from(textParts.shift()!, 'hex')
     const encryptedText = Buffer.from(textParts.join(':'), 'hex')
     const decipher = crypto.createDecipheriv(ALGORITHM, getEncryptionKey(), iv)
     let decrypted = decipher.update(encryptedText)
     decrypted = Buffer.concat([decrypted, decipher.final()])
-    return decrypted.toString()
+    return decrypted.toString('utf8')
   } catch (error) {
     console.error('Decryption failed:', error)
-    return '' // Return empty string if decryption fails (e.g. wrong key)
+    throw new Error('Failed to decrypt API key. Please check your ENCRYPTION_KEY or re-save your settings.')
   }
 }

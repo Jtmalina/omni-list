@@ -4,17 +4,7 @@ import prisma from '@/lib/prisma'
 import { ItemStatus, ItemType, MediaType, Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
-
-async function verifyListOwnership(listId: string) {
-  const session = await auth()
-  if (!session?.user?.id) throw new Error('Unauthorized')
-  
-  const list = await prisma.list.findUnique({
-    where: { id: listId, userId: session.user.id }
-  })
-  if (!list) throw new Error('Unauthorized')
-  return session.user.id
-}
+import { verifyListAccess } from '@/lib/permissions'
 
 export async function createItem(data: {
   title: string
@@ -31,7 +21,7 @@ export async function createItem(data: {
   }
 }) {
   try {
-    await verifyListOwnership(data.listId)
+    await verifyListAccess(data.listId, 'EDIT')
     const { mediaMetadata, ...itemData } = data
     
     await prisma.item.create({
@@ -55,7 +45,7 @@ export async function createItem(data: {
 }
 
 export async function getItems(listId: string) {
-  await verifyListOwnership(listId)
+  await verifyListAccess(listId, 'VIEW')
   return await prisma.item.findMany({
     where: { listId },
     include: {
@@ -66,7 +56,7 @@ export async function getItems(listId: string) {
 }
 
 export async function updateItemStatus(id: string, status: ItemStatus, listId: string) {
-  await verifyListOwnership(listId)
+  await verifyListAccess(listId, 'EDIT')
   await prisma.item.update({
     where: { id },
     data: { status },
@@ -75,7 +65,7 @@ export async function updateItemStatus(id: string, status: ItemStatus, listId: s
 }
 
 export async function deleteItem(id: string, listId: string) {
-  await verifyListOwnership(listId)
+  await verifyListAccess(listId, 'EDIT')
   await prisma.item.delete({
     where: { id },
   })

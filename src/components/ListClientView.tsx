@@ -45,13 +45,23 @@ interface ListClientViewProps {
     sonarrUrl?: string | null
     sonarrApiKey?: string | null
   } | null
+  isOwner?: boolean
+  accessLevel?: 'OWNER' | 'VIEW' | 'EDIT' | null
 }
 
-export default function ListClientView({ list, items, servarrConfig }: ListClientViewProps) {
+export default function ListClientView({ 
+  list, 
+  items, 
+  servarrConfig,
+  isOwner = false,
+  accessLevel = null
+}: ListClientViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
 
   const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
   const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
+
+  const canEdit = isOwner || accessLevel === 'EDIT'
 
   const isMediaList = list.type === 'MEDIA'
   const isCalendarList = list.type === 'CALENDAR'
@@ -65,6 +75,7 @@ export default function ListClientView({ list, items, servarrConfig }: ListClien
   ]
 
   const handleAddClick = (date: Date) => {
+    if (!canEdit) return
     setSelectedDate(new Date(date)) // New object to trigger useEffect in dialog
   }
 
@@ -81,16 +92,18 @@ export default function ListClientView({ list, items, servarrConfig }: ListClien
           <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
           <p className="text-muted-foreground font-mono">
             {items.length} {isMediaList ? 'titles' : 'notes'} tracking
+            {!isOwner && accessLevel && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
           </p>
         </div>
         <div className="flex gap-2">
-          {/* We keep the header button too */}
-          <AddItemDialog 
-            key={selectedDate ? `date-${selectedDate.getTime()}` : 'header'}
-            listId={list.id} 
-            initialDate={selectedDate} 
-            onOpenChange={handleOpenChange}
-          />
+          {canEdit && (
+            <AddItemDialog 
+              key={selectedDate ? `date-${selectedDate.getTime()}` : 'header'}
+              listId={list.id} 
+              initialDate={selectedDate} 
+              onOpenChange={handleOpenChange}
+            />
+          )}
         </div>
       </div>
 
@@ -101,6 +114,7 @@ export default function ListClientView({ list, items, servarrConfig }: ListClien
           onAddClick={handleAddClick}
           isRadarrEnabled={isRadarrEnabled}
           isSonarrEnabled={isSonarrEnabled}
+          canEdit={canEdit}
         />
       ) : isMediaList ? (
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -174,6 +188,7 @@ export default function ListClientView({ list, items, servarrConfig }: ListClien
                         mediaType={item.mediaType} 
                         isRadarrEnabled={isRadarrEnabled}
                         isSonarrEnabled={isSonarrEnabled}
+                        canEdit={canEdit}
                       />
                     </div>
 
@@ -282,6 +297,7 @@ export default function ListClientView({ list, items, servarrConfig }: ListClien
                         mediaType={item.mediaType} 
                         isRadarrEnabled={isRadarrEnabled}
                         isSonarrEnabled={isSonarrEnabled}
+                        canEdit={canEdit}
                       />
                     </div>
 

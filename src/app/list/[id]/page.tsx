@@ -7,6 +7,7 @@ import ListDeleteButton from '@/components/ListDeleteButton'
 import { cn } from '@/lib/utils'
 import ListClientView from '@/components/ListClientView'
 import { auth } from '@/lib/auth'
+import ShareListDialog from '@/components/ShareListDialog'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,10 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
   const items = await getItems(id)
 
   const isMediaList = list.type === 'MEDIA'
+  const isOwner = list.userId === session?.user?.id
+  const accessLevel = config ? 'OWNER' : (await prisma.listAccess.findUnique({
+    where: { listId_userId: { listId: id, userId: session?.user?.id || '' } }
+  }))?.accessLevel || null
 
   return (
     <main className={cn(
@@ -40,11 +45,20 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
-          <ListDeleteButton id={id} isRedirect={true} />
+          {isOwner && <div className="flex gap-2">
+            <ShareListDialog listId={id} listTitle={list.title} />
+            <ListDeleteButton id={id} isRedirect={true} />
+          </div>}
         </div>
       </div>
 
-      <ListClientView list={list} items={items} servarrConfig={config} />
+      <ListClientView 
+        list={list} 
+        items={items} 
+        servarrConfig={config} 
+        isOwner={isOwner}
+        accessLevel={accessLevel}
+      />
     </main>
   )
 }

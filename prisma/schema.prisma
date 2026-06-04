@@ -17,8 +17,52 @@ model User {
   sessions      Session[]
   lists         List[]
   servarrConfig ServarrConfig?
+  
+  // Friends relations
+  sentFriendRequests     Friendship[] @relation("SentFriendRequests")
+  receivedFriendRequests Friendship[] @relation("ReceivedFriendRequests")
+  
+  // Shared lists access
+  listAccess             ListAccess[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+model Friendship {
+  id         String           @id @default(cuid())
+  senderId   String
+  sender     User             @relation("SentFriendRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User             @relation("ReceivedFriendRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     FriendshipStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([senderId, receiverId])
+}
+
+enum AccessLevel {
+  VIEW
+  EDIT
+}
+
+model ListAccess {
+  id          String      @id @default(cuid())
+  listId      String
+  list        List        @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessLevel AccessLevel @default(VIEW)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([listId, userId])
 }
 
 model ServarrConfig {
@@ -77,13 +121,14 @@ enum ListType {
 }
 
 model List {
-  id        String   @id @default(cuid())
-  title     String
-  type      ListType @default(TODO)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     Item[]
-  createdAt DateTime @default(now())
+  id          String       @id @default(cuid())
+  title       String
+  type        ListType     @default(TODO)
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       Item[]
+  sharedWith  ListAccess[]
+  createdAt   DateTime     @default(now())
 }
 
 enum ItemStatus {

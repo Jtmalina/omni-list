@@ -16,6 +16,7 @@ export default function ItemActions({
   mediaType,
   isRadarrEnabled = false,
   isSonarrEnabled = false,
+  canEdit = true,
 }: {
   id: string
   status: ItemStatus
@@ -23,10 +24,12 @@ export default function ItemActions({
   mediaType?: MediaType | null
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
+  canEdit?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
 
   const toggleStatus = () => {
+    if (!canEdit) return
     const nextStatus = status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
     startTransition(async () => {
       await updateItemStatus(id, nextStatus, listId)
@@ -34,6 +37,7 @@ export default function ItemActions({
   }
 
   const handleDelete = () => {
+    if (!canEdit) return
     if (confirm('Are you sure you want to delete this item?')) {
       startTransition(async () => {
         await deleteItem(id, listId)
@@ -42,6 +46,7 @@ export default function ItemActions({
   }
 
   const handleDownload = () => {
+    if (!canEdit) return
     startTransition(async () => {
       const result = await downloadMediaAction(id)
       if (result.success) {
@@ -54,12 +59,12 @@ export default function ItemActions({
 
   const isMovie = mediaType === MediaType.MOVIE
   const isShow = mediaType === MediaType.SHOW
-  const canDownload = (isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled)
+  const canDownload = canEdit && ((isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled))
   const isDownloadableType = isMovie || isShow
 
   return (
     <div className="flex items-center gap-2">
-      {isDownloadableType && (
+      {isDownloadableType && canEdit && (
         <Button
           variant="ghost"
           size="icon"
@@ -77,17 +82,19 @@ export default function ItemActions({
       <Checkbox
         checked={status === ItemStatus.COMPLETED}
         onCheckedChange={toggleStatus}
-        disabled={isPending}
+        disabled={isPending || !canEdit}
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleDelete}
-        disabled={isPending}
-        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      {canEdit && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDelete}
+          disabled={isPending}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   )
 }
