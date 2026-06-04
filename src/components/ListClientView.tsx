@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
+import { Input } from '@/components/ui/input'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -61,6 +62,7 @@ export default function ListClientView({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('ALL')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
   const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
@@ -71,13 +73,22 @@ export default function ListClientView({
   const isCalendarList = list.type === 'CALENDAR'
 
   const filteredItems = useMemo(() => {
-    if (activeCategory === 'ALL') return items
-    if (activeCategory === 'MOVIE') return items.filter(i => i.mediaType === 'MOVIE')
-    if (activeCategory === 'SHOW') return items.filter(i => i.mediaType === 'SHOW')
-    if (activeCategory === 'GAME') return items.filter(i => i.mediaType === 'GAME')
-    if (activeCategory === 'OTHER') return items.filter(i => i.type !== 'MEDIA')
-    return items
-  }, [items, activeCategory])
+    let result = items
+
+    // 1. Filter by category
+    if (activeCategory === 'MOVIE') result = result.filter(i => i.mediaType === 'MOVIE')
+    else if (activeCategory === 'SHOW') result = result.filter(i => i.mediaType === 'SHOW')
+    else if (activeCategory === 'GAME') result = result.filter(i => i.mediaType === 'GAME')
+    else if (activeCategory === 'OTHER') result = result.filter(i => i.type !== 'MEDIA')
+
+    // 2. Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(i => i.title.toLowerCase().includes(query))
+    }
+
+    return result
+  }, [items, activeCategory, searchQuery])
 
   const sidebarItems = [
     { id: 'ALL', label: 'All Media', icon: LayoutGrid },
@@ -176,7 +187,10 @@ export default function ListClientView({
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveCategory(item.id as FilterCategory)}
+                onClick={() => {
+                  setActiveCategory(item.id as FilterCategory)
+                  setSearchQuery('') // Clear search when switching categories
+                }}
                 className={cn(
                   "flex items-center rounded-xl text-sm font-bold transition-all whitespace-nowrap",
                   isActive 
@@ -218,6 +232,27 @@ export default function ListClientView({
 
       {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
+        {/* Search Bar */}
+        <div className="mb-8 flex items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={`Search ${activeCategory === 'ALL' ? 'everything' : activeCategory.toLowerCase() + 's'}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10 h-11 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary rounded-xl"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+              >
+                <X className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {!isMediaList ? (
           <div className={cn(
             "grid gap-8 transition-all duration-300",
