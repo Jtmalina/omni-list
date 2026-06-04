@@ -76,6 +76,7 @@ export default function ListClientView({
     return map
   }, [list.tagConfigs])
 
+
   const { allTags, allColors } = useMemo(() => {
     const tags = new Set<string>()
     const colors = new Set<string>()
