@@ -32,6 +32,7 @@ interface CalendarViewProps {
   isRadarrEnabled?: boolean
   isSonarrEnabled?: boolean
   canEdit?: boolean
+  isOwner?: boolean
 }
 
 export default function CalendarView({ 
@@ -40,7 +41,8 @@ export default function CalendarView({
   onAddClick,
   isRadarrEnabled,
   isSonarrEnabled,
-  canEdit = true
+  canEdit = true,
+  isOwner = false
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isPending, startTransition] = useTransition()
@@ -92,6 +94,7 @@ export default function CalendarView({
         isRadarrEnabled={isRadarrEnabled}
         isSonarrEnabled={isSonarrEnabled}
         canEdit={canEdit}
+        isOwner={isOwner}
       />
       <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
         {/* Calendar Header */}
