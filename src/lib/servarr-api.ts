@@ -94,6 +94,92 @@ export async function addSeriesToSonarr(series: {
   return await response.json();
 }
 
+export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
+  const baseUrl = config.radarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.radarrApiKey?.trim().replace(/^["']|["']$/g, '');
+
+  if (!baseUrl || !apiKey) return null;
+
+  try {
+    // 1. Check if it's in the library
+    const lookupResponse = await fetch(`${baseUrl}/api/v3/movie/lookup/tmdb?tmdbId=${tmdbId}`, {
+      headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+    });
+    
+    if (!lookupResponse.ok) return null;
+    const movieInfo = await lookupResponse.json();
+    
+    const inLibrary = !!movieInfo.id;
+    const hasFile = movieInfo.hasFile;
+
+    // 2. Check if it's in the download queue
+    const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
+      headers: { 'User-Agent': 'OmniList-App/1.0' }
+    });
+    
+    let progress = null;
+    if (queueResponse.ok) {
+      const queueData = await queueResponse.json();
+      const activeDownload = queueData.records?.find((r: any) => r.tmdbId === tmdbId || r.movieId === movieInfo.id);
+      if (activeDownload) {
+        progress = activeDownload.size > 0 
+          ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
+          : 0;
+      }
+    }
+
+    return { inLibrary, hasFile, progress };
+  } catch (error) {
+    console.error('Radarr status fetch failed:', error);
+    return null;
+  }
+}
+
+export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
+  const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
+
+  if (!baseUrl || !apiKey) return null;
+
+  try {
+    // 1. Check if it's in the library
+    const lookupResponse = await fetch(`${baseUrl}/api/v3/series/lookup?term=tvdb:${tvdbId}`, {
+      headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+    });
+    
+    if (!lookupResponse.ok) return null;
+    const lookupResults = await lookupResponse.json();
+    const seriesInfo = lookupResults[0]; // lookup returns an array
+    
+    if (!seriesInfo) return { inLibrary: false, hasFile: false, progress: null };
+
+    const inLibrary = !!seriesInfo.id;
+    const statistics = seriesInfo.statistics;
+    const hasFile = statistics ? (statistics.episodeFileCount >= statistics.totalEpisodeCount && statistics.totalEpisodeCount > 0) : false;
+
+    // 2. Check queue
+    const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
+      headers: { 'User-Agent': 'OmniList-App/1.0' }
+    });
+    
+    let progress = null;
+    if (queueResponse.ok) {
+      const queueData = await queueResponse.json();
+      const activeDownload = queueData.records?.find((r: any) => r.seriesId === seriesInfo.id);
+      if (activeDownload) {
+        progress = activeDownload.size > 0 
+          ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
+          : 0;
+      }
+    }
+
+    return { inLibrary, hasFile, progress };
+  } catch (error) {
+    console.error('Sonarr status fetch failed:', error);
+    return null;
+  }
+}
+
 export async function getTvdbIdFromTmdb(tmdbId: string): Promise<number | null> {
   const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '');
   if (!token) return null;

@@ -2,10 +2,11 @@
 
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { addMovieToRadarr, addSeriesToSonarr, getTvdbIdFromTmdb } from '@/lib/servarr-api'
+import { addMovieToRadarr, addSeriesToSonarr, getTvdbIdFromTmdb, getMovieStatus, getSeriesStatus } from '@/lib/servarr-api'
 import { MediaType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { encrypt, decrypt } from '@/lib/encryption'
+import { verifyListAccess } from '@/lib/permissions'
 
 export async function getServarrConfigAction() {
   const session = await auth()
@@ -63,6 +64,59 @@ export async function saveServarrConfigAction(data: {
 
   revalidatePath('/')
   return { success: true }
+}
+
+export async function getMediaStatusAction(itemId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { servarrConfig: true },
+  })
+
+  if (!user?.servarrConfig) return null
+
+  const item = await prisma.item.findUnique({
+    where: { id: itemId },
+    include: {
+      media: true,
+      list: true,
+    },
+  })
+
+  if (!item || !item.media?.externalId) return null
+
+  // Security check: must be owner or have at least view access
+  // (We use verifyListAccess to be safe)
+  try {
+    await verifyListAccess(item.listId, 'VIEW')
+  } catch (e) {
+    return null
+  }
+
+  const config = {
+    ...user.servarrConfig,
+    radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
+    sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
+  }
+
+  const externalId = item.media.externalId
+
+  try {
+    if (item.mediaType === MediaType.MOVIE) {
+      return await getMovieStatus(parseInt(externalId), config)
+    } else if (item.mediaType === MediaType.SHOW) {
+      const tvdbId = await getTvdbIdFromTmdb(externalId)
+      if (!tvdbId) return null
+      return await getSeriesStatus(tvdbId, config)
+    }
+  } catch (error) {
+    console.error('Failed to get media status:', error)
+    return null
+  }
+
+  return null
 }
 
 export async function downloadMediaAction(itemId: string) {

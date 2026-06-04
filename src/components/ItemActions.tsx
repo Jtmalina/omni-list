@@ -5,9 +5,10 @@ import { downloadMediaAction } from '@/actions/servarr'
 import { ItemStatus, MediaType } from '@prisma/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Trash2, CloudDownload } from 'lucide-react'
+import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw } from 'lucide-react'
 import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
+import { useMediaStatus } from '@/lib/hooks/useMediaStatus'
 
 export default function ItemActions({
   id,
@@ -27,6 +28,16 @@ export default function ItemActions({
   canEdit?: boolean
 }) {
   const [isPending, startTransition] = useTransition()
+  
+  const isMovie = mediaType === MediaType.MOVIE
+  const isShow = mediaType === MediaType.SHOW
+  const servarrEnabled = (isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled)
+  
+  const { status: mediaStatus, loading: statusLoading, refresh } = useMediaStatus(
+    id, 
+    mediaType, 
+    servarrEnabled
+  )
 
   const toggleStatus = () => {
     if (!canEdit) return
@@ -51,50 +62,83 @@ export default function ItemActions({
       const result = await downloadMediaAction(id)
       if (result.success) {
         alert(result.message)
+        refresh() // Update status immediately
       } else {
         alert(`Error: ${result.error}`)
       }
     })
   }
 
-  const isMovie = mediaType === MediaType.MOVIE
-  const isShow = mediaType === MediaType.SHOW
-  const canDownload = canEdit && ((isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled))
   const isDownloadableType = isMovie || isShow
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2">
       {isDownloadableType && canEdit && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleDownload}
-          disabled={isPending || !canDownload}
-          title={!canDownload ? "Configure Radarr/Sonarr in settings to download" : "Send to Radarr/Sonarr"}
-          className={cn(
-            "text-primary hover:text-primary hover:bg-primary/10",
-            !canDownload && "opacity-30 grayscale cursor-not-allowed"
+        <div className="flex items-center gap-1">
+          {mediaStatus?.progress !== null ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-black animate-pulse">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span>{mediaStatus.progress}%</span>
+            </div>
+          ) : mediaStatus?.hasFile ? (
+            <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-600 rounded-md text-[10px] font-black">
+              <CheckCircle2 className="h-3 w-3" />
+              <span className="hidden sm:inline">LIBRARY</span>
+            </div>
+          ) : mediaStatus?.inLibrary ? (
+            <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 text-yellow-600 rounded-md text-[10px] font-black">
+              <CheckCircle2 className="h-3 w-3" />
+              <span className="hidden sm:inline">MONITORED</span>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownload}
+              disabled={isPending || !servarrEnabled}
+              title={!servarrEnabled ? "Configure Radarr/Sonarr in settings to download" : "Send to Radarr/Sonarr"}
+              className={cn(
+                "h-8 w-8 text-primary hover:text-primary hover:bg-primary/10",
+                !servarrEnabled && "opacity-30 grayscale cursor-not-allowed"
+              )}
+            >
+              <CloudDownload className="h-4 w-4" />
+            </Button>
           )}
-        >
-          <CloudDownload className="h-4 w-4" />
-        </Button>
+          
+          {servarrEnabled && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={refresh}
+              disabled={statusLoading}
+              title="Refresh Status"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCw className={cn("h-3 w-3", statusLoading && "animate-spin")} />
+            </Button>
+          )}
+        </div>
       )}
-      <Checkbox
-        checked={status === ItemStatus.COMPLETED}
-        onCheckedChange={toggleStatus}
-        disabled={isPending || !canEdit}
-      />
-      {canEdit && (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleDelete}
-          disabled={isPending}
-          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      )}
+      
+      <div className="flex items-center gap-1 ml-1 sm:ml-0">
+        <Checkbox
+          checked={status === ItemStatus.COMPLETED}
+          onCheckedChange={toggleStatus}
+          disabled={isPending || !canEdit}
+        />
+        {canEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleDelete}
+            disabled={isPending}
+            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
     </div>
   )
 }
