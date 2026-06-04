@@ -33,6 +33,7 @@ interface CalendarViewProps {
   isSonarrEnabled?: boolean
   canEdit?: boolean
   isOwner?: boolean
+  tagConfigs?: Record<string, string>
 }
 
 export default function CalendarView({ 
@@ -42,7 +43,8 @@ export default function CalendarView({
   isRadarrEnabled,
   isSonarrEnabled,
   canEdit = true,
-  isOwner = false
+  isOwner = false,
+  tagConfigs = {}
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isPending, startTransition] = useTransition()
@@ -95,6 +97,7 @@ export default function CalendarView({
         isSonarrEnabled={isSonarrEnabled}
         canEdit={canEdit}
         isOwner={isOwner}
+        tagConfigs={tagConfigs}
       />
       <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
         {/* Calendar Header */}
@@ -160,46 +163,56 @@ export default function CalendarView({
                 </div>
 
                 <div className="space-y-1 overflow-y-auto max-h-[80px] scrollbar-hide">
-                  {dayItems.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => handleItemClick(item)}
-                      className={cn(
-                        "group/item text-[10px] p-1 rounded border flex items-center gap-1 cursor-pointer transition-colors",
-                        item.status === 'COMPLETED'
-                          ? "bg-muted text-muted-foreground hover:bg-muted/80"
-                          : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20"
-                      )}
-                    >
-                      <button
-                        className="flex-shrink-0 leading-none"
-                        onClick={(e) => toggleStatus(item, e)}
-                        disabled={isPending || !canEdit}
-                        title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
+                  {dayItems.map((item) => {
+                    const itemColor = item.color || (item.tags[0] ? tagConfigs[item.tags[0]] : null)
+                    const style = itemColor ? {
+                      backgroundColor: `${itemColor}15`,
+                      color: itemColor,
+                      borderColor: `${itemColor}30`,
+                    } : {}
+
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleItemClick(item)}
+                        className={cn(
+                          "group/item text-[10px] p-1 rounded border flex items-center gap-1 cursor-pointer transition-colors",
+                          !itemColor && (item.status === 'COMPLETED'
+                            ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                            : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20")
+                        )}
+                        style={style}
                       >
-                        <span className={cn(
-                          "inline-block h-2 w-2 rounded-sm border border-current",
-                          item.status === 'COMPLETED' && "bg-current"
-                        )} />
-                      </button>
-                      <span className={cn(
-                        "truncate flex-1 font-medium",
-                        item.status === 'COMPLETED' && "line-through"
-                      )}>
-                        {item.title}
-                      </span>
-                      {canEdit && (
                         <button
-                          className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
-                          onClick={(e) => handleDelete(item, e)}
-                          disabled={isPending}
-                          title="Delete"
+                          className="flex-shrink-0 leading-none"
+                          onClick={(e) => toggleStatus(item, e)}
+                          disabled={isPending || !canEdit}
+                          title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                         >
-                          <X className="h-2 w-2" />
+                          <span className={cn(
+                            "inline-block h-2 w-2 rounded-sm border border-current",
+                            item.status === 'COMPLETED' && "bg-current"
+                          )} />
                         </button>
-                      )}
-                    </div>
-                  ))}
+                        <span className={cn(
+                          "truncate flex-1 font-medium",
+                          item.status === 'COMPLETED' && "line-through"
+                        )}>
+                          {item.title}
+                        </span>
+                        {canEdit && (
+                          <button
+                            className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity"
+                            onClick={(e) => handleDelete(item, e)}
+                            disabled={isPending}
+                            title="Delete"
+                          >
+                            <X className="h-2 w-2" />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -212,42 +225,52 @@ export default function CalendarView({
         <div className="border rounded-xl p-4">
           <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground mb-3">Unscheduled</h3>
           <div className="flex flex-wrap gap-2">
-            {unscheduledItems.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleItemClick(item)}
-                className={cn(
-                  "group/item flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border cursor-pointer transition-colors",
-                  item.status === 'COMPLETED'
-                    ? "bg-muted text-muted-foreground hover:bg-muted/80"
-                    : "bg-background hover:bg-muted/20"
-                )}
-              >
-                <button
-                  onClick={(e) => toggleStatus(item, e)}
-                  disabled={isPending || !canEdit}
-                  title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
+            {unscheduledItems.map((item) => {
+              const itemColor = item.color || (item.tags[0] ? tagConfigs[item.tags[0]] : null)
+              const style = itemColor ? {
+                backgroundColor: `${itemColor}15`,
+                color: itemColor,
+                borderColor: `${itemColor}30`,
+              } : {}
+
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleItemClick(item)}
+                  className={cn(
+                    "group/item flex items-center gap-2 text-sm px-3 py-1.5 rounded-full border cursor-pointer transition-colors",
+                    !itemColor && (item.status === 'COMPLETED'
+                      ? "bg-muted text-muted-foreground hover:bg-muted/80"
+                      : "bg-background hover:bg-muted/20")
+                  )}
+                  style={style}
                 >
-                  <span className={cn(
-                    "inline-block h-3 w-3 rounded-sm border border-current",
-                    item.status === 'COMPLETED' && "bg-current"
-                  )} />
-                </button>
-                <span className={cn("font-medium", item.status === 'COMPLETED' && "line-through")}>
-                  {item.title}
-                </span>
-                {canEdit && (
                   <button
-                    className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
-                    onClick={(e) => handleDelete(item, e)}
-                    disabled={isPending}
-                    title="Delete"
+                    onClick={(e) => toggleStatus(item, e)}
+                    disabled={isPending || !canEdit}
+                    title={item.status === 'COMPLETED' ? 'Mark incomplete' : 'Mark complete'}
                   >
-                    <X className="h-3 w-3" />
+                    <span className={cn(
+                      "inline-block h-3 w-3 rounded-sm border border-current",
+                      item.status === 'COMPLETED' && "bg-current"
+                    )} />
                   </button>
-                )}
-              </div>
-            ))}
+                  <span className={cn("font-medium", item.status === 'COMPLETED' && "line-through")}>
+                    {item.title}
+                  </span>
+                  {canEdit && (
+                    <button
+                      className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
+                      onClick={(e) => handleDelete(item, e)}
+                      disabled={isPending}
+                      title="Delete"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
