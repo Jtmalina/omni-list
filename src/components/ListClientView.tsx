@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
@@ -60,6 +60,7 @@ export default function ListClientView({
 }: ListClientViewProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('ALL')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
   const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
@@ -143,12 +144,29 @@ export default function ListClientView({
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
       {/* Sidebar */}
-      <aside className="w-full lg:w-64 shrink-0 space-y-1 lg:sticky lg:top-24">
-        <div className="mb-6">
-          <h1 className="text-3xl font-black uppercase tracking-tighter mb-1">{list.title}</h1>
-          <p className="text-xs text-muted-foreground font-mono uppercase font-bold tracking-widest">
-            {filteredItems.length} of {items.length} items
-          </p>
+      <aside 
+        className={cn(
+          "shrink-0 space-y-1 lg:sticky lg:top-24 transition-all duration-300 ease-in-out",
+          isSidebarCollapsed ? "w-full lg:w-16" : "w-full lg:w-64"
+        )}
+      >
+        <div className="mb-6 flex items-start justify-between">
+          <div className={cn(
+            "transition-all duration-300",
+            isSidebarCollapsed ? "lg:opacity-0 lg:w-0 overflow-hidden" : "lg:opacity-100 lg:w-auto"
+          )}>
+            <h1 className="text-3xl font-black uppercase tracking-tighter mb-1 whitespace-nowrap">{list.title}</h1>
+            <p className="text-xs text-muted-foreground font-mono uppercase font-bold tracking-widest whitespace-nowrap">
+              {filteredItems.length} of {items.length} items
+            </p>
+          </div>
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="p-2 hover:bg-muted rounded-lg transition-colors text-muted-foreground hover:text-foreground shrink-0"
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          </button>
         </div>
         
         <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-4 lg:pb-0 scrollbar-hide">
@@ -160,27 +178,39 @@ export default function ListClientView({
                 key={item.id}
                 onClick={() => setActiveCategory(item.id as FilterCategory)}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
+                  "flex items-center rounded-xl text-sm font-bold transition-all whitespace-nowrap",
                   isActive 
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]" 
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                    : "hover:bg-muted text-muted-foreground hover:text-foreground",
+                  isSidebarCollapsed ? "lg:px-0 lg:justify-center h-12 w-12" : "px-4 py-3 h-auto"
                 )}
+                title={isSidebarCollapsed ? item.label : undefined}
               >
-                <Icon className={cn("h-4 w-4", isActive ? "animate-pulse" : "")} />
-                <span>{item.label}</span>
-                {isActive && <ChevronRight className="ml-auto h-4 w-4 hidden lg:block" />}
+                <Icon className={cn("h-4 w-4 shrink-0", isActive ? "animate-pulse" : "")} />
+                <span className={cn(
+                  "ml-3 transition-all duration-300",
+                  isSidebarCollapsed && "lg:hidden"
+                )}>
+                  {item.label}
+                </span>
+                {!isSidebarCollapsed && isActive && <ChevronRight className="ml-auto h-4 w-4 hidden lg:block" />}
               </button>
             )
           })}
         </nav>
 
-        <div className="pt-6 hidden lg:block">
+        <div className={cn(
+          "pt-6 hidden lg:block transition-all",
+          isSidebarCollapsed ? "lg:pt-4 lg:flex lg:justify-center" : ""
+        )}>
           {canEdit && (
             <AddItemDialog 
               key={selectedDate ? `date-${selectedDate.getTime()}` : 'header'}
               listId={list.id} 
               initialDate={selectedDate} 
               onOpenChange={handleOpenChange}
+              buttonVariant={isSidebarCollapsed ? "ghost" : "default"}
+              buttonSize={isSidebarCollapsed ? "icon" : "default"}
             />
           )}
         </div>
@@ -189,7 +219,12 @@ export default function ListClientView({
       {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
         {!isMediaList ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className={cn(
+            "grid gap-8 transition-all duration-300",
+            isSidebarCollapsed 
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
+              : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+          )}>
             {filteredItems.map((item, index) => {
               const colorClass = postItColors[index % postItColors.length]
               const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
