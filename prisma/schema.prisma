@@ -128,7 +128,20 @@ model List {
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   items       Item[]
   sharedWith  ListAccess[]
+  tagConfigs  TagConfig[]
   createdAt   DateTime     @default(now())
+}
+
+model TagConfig {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  listId    String
+  list      List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([listId, name])
 }
 
 enum ItemStatus {
@@ -156,6 +169,8 @@ model Item {
   dueDate   DateTime?
   type      ItemType   @default(TASK)
   mediaType MediaType?
+  color     String?
+  tags      String[]
   listId    String
   list      List       @relation(fields: [listId], references: [id], onDelete: Cascade)
   media     MediaMetadata?

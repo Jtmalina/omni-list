@@ -18,6 +18,7 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
   const [list, config] = await Promise.all([
     prisma.list.findUnique({
       where: { id },
+      include: { tagConfigs: true }
     }),
     session?.user?.id ? prisma.servarrConfig.findUnique({
       where: { userId: session.user.id }

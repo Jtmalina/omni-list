@@ -13,6 +13,8 @@ export async function createItem(data: {
   type: ItemType
   mediaType?: MediaType
   dueDate?: Date
+  color?: string
+  tags?: string[]
   mediaMetadata?: {
     posterPath?: string
     rating?: number
@@ -40,6 +42,36 @@ export async function createItem(data: {
     revalidatePath(`/list/${data.listId}`)
   } catch (error) {
     console.error('Error creating item:', error)
+    throw error
+  }
+}
+
+export async function updateItem(id: string, data: {
+  title?: string
+  notes?: string
+  dueDate?: Date | null
+  color?: string | null
+  tags?: string[]
+  status?: ItemStatus
+  listId: string
+}) {
+  try {
+    await verifyListAccess(data.listId, 'EDIT')
+    
+    await prisma.item.update({
+      where: { id },
+      data: {
+        title: data.title,
+        notes: data.notes,
+        dueDate: data.dueDate,
+        color: data.color,
+        tags: data.tags,
+        status: data.status,
+      },
+    })
+    revalidatePath(`/list/${data.listId}`)
+  } catch (error) {
+    console.error('Error updating item:', error)
     throw error
   }
 }

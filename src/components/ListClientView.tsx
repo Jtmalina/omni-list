@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
 import { Input } from '@/components/ui/input'
+import { TagBadge } from './TagBadge'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -38,6 +39,7 @@ interface ListClientViewProps {
     id: string
     title: string
     type: ListType
+    tagConfigs?: { name: string, color: string }[]
   }
   items: ItemWithMedia[]
   servarrConfig?: {
@@ -63,6 +65,26 @@ export default function ListClientView({
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('ALL')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedColors, setSelectedColors] = useState<string[]>([])
+
+  const tagConfigsMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    list.tagConfigs?.forEach(config => {
+      map[config.name] = config.color
+    })
+    return map
+  }, [list.tagConfigs])
+
+  const { allTags, allColors } = useMemo(() => {
+    const tags = new Set<string>()
+    const colors = new Set<string>()
+    items.forEach(item => {
+      item.tags.forEach(t => tags.add(t))
+      if (item.color) colors.add(item.color)
+    })
+    return { allTags: Array.from(tags), allColors: Array.from(colors) }
+  }, [items])
 
   const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
   const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
@@ -75,20 +97,30 @@ export default function ListClientView({
   const filteredItems = useMemo(() => {
     let result = items
 
-    // 1. Filter by category
     if (activeCategory === 'MOVIE') result = result.filter(i => i.mediaType === 'MOVIE')
     else if (activeCategory === 'SHOW') result = result.filter(i => i.mediaType === 'SHOW')
     else if (activeCategory === 'GAME') result = result.filter(i => i.mediaType === 'GAME')
     else if (activeCategory === 'OTHER') result = result.filter(i => i.type !== 'MEDIA')
 
-    // 2. Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       result = result.filter(i => i.title.toLowerCase().includes(query))
     }
 
+    if (selectedTags.length > 0) {
+      result = result.filter(item => 
+        selectedTags.every(tag => item.tags.includes(tag))
+      )
+    }
+
+    if (selectedColors.length > 0) {
+      result = result.filter(item => 
+        item.color && selectedColors.includes(item.color)
+      )
+    }
+
     return result
-  }, [items, activeCategory, searchQuery])
+  }, [items, activeCategory, searchQuery, selectedTags, selectedColors])
 
   const sidebarItems = [
     { id: 'ALL', label: 'All Media', icon: LayoutGrid },
@@ -117,6 +149,18 @@ export default function ListClientView({
     }
   }
 
+  const toggleTag = (tag: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    )
+  }
+
+  const toggleColor = (color: string) => {
+    setSelectedColors(prev => 
+      prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]
+    )
+  }
+
   if (isCalendarList) {
     return (
       <>
@@ -135,18 +179,20 @@ export default function ListClientView({
                 listId={list.id} 
                 initialDate={selectedDate} 
                 onOpenChange={handleOpenChange}
+                tagConfigs={tagConfigsMap}
               />
             )}
           </div>
         </div>
         <CalendarView 
-          items={items} 
+          items={filteredItems} 
           listId={list.id} 
           onAddClick={handleAddClick}
           isRadarrEnabled={isRadarrEnabled}
           isSonarrEnabled={isSonarrEnabled}
           canEdit={canEdit}
           isOwner={isOwner}
+          tagConfigs={tagConfigsMap}
         />
       </>
     )
@@ -154,10 +200,9 @@ export default function ListClientView({
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
-      {/* Sidebar */}
       <aside 
         className={cn(
-          "shrink-0 space-y-1 lg:sticky lg:top-24 transition-all duration-300 ease-in-out",
+          "shrink-0 lg:sticky lg:top-24 transition-all duration-300 ease-in-out pb-10",
           isSidebarCollapsed ? "w-full lg:w-16" : "w-full lg:w-64"
         )}
       >
@@ -189,7 +234,9 @@ export default function ListClientView({
                 key={item.id}
                 onClick={() => {
                   setActiveCategory(item.id as FilterCategory)
-                  setSearchQuery('') // Clear search when switching categories
+                  setSearchQuery('') 
+                  setSelectedTags([])
+                  setSelectedColors([])
                 }}
                 className={cn(
                   "flex items-center rounded-xl text-sm font-bold transition-all whitespace-nowrap",
@@ -213,6 +260,45 @@ export default function ListClientView({
           })}
         </nav>
 
+        {!isSidebarCollapsed && allTags.length > 0 && (
+          <div className="mt-8 space-y-3 px-2">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Filter by Tag</h3>
+            <div className="flex flex-wrap gap-2">
+              {allTags.map(tag => (
+                <TagBadge 
+                  key={tag} 
+                  name={tag} 
+                  color={tagConfigsMap[tag]}
+                  onClick={() => toggleTag(tag)}
+                  className={cn(
+                    "cursor-pointer transition-all",
+                    selectedTags.includes(tag) ? "ring-2 ring-primary ring-offset-1 scale-105 opacity-100" : "opacity-40 grayscale hover:opacity-100 hover:grayscale-0"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!isSidebarCollapsed && allColors.length > 0 && (
+          <div className="mt-8 space-y-3 px-2">
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Filter by Color</h3>
+            <div className="flex flex-wrap gap-2">
+              {allColors.map(color => (
+                <button
+                  key={color}
+                  onClick={() => toggleColor(color)}
+                  className={cn(
+                    "h-6 w-6 rounded-full border-2 transition-all",
+                    selectedColors.includes(color) ? "border-primary ring-2 ring-primary/20 ring-offset-1 scale-110" : "border-transparent opacity-60 hover:opacity-100"
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className={cn(
           "pt-6 hidden lg:block transition-all",
           isSidebarCollapsed ? "lg:pt-4 lg:flex lg:justify-center" : ""
@@ -225,14 +311,13 @@ export default function ListClientView({
               onOpenChange={handleOpenChange}
               buttonVariant={isSidebarCollapsed ? "ghost" : "default"}
               buttonSize={isSidebarCollapsed ? "icon" : "default"}
+              tagConfigs={tagConfigsMap}
             />
           )}
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
-        {/* Search Bar */}
         <div className="mb-8 flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -292,10 +377,16 @@ export default function ListClientView({
                       </div>
 
                       <div className="mt-4 flex-1 overflow-hidden">
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {item.tags.map(tag => (
+                            <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[8px] px-1.5 py-0" />
+                          ))}
+                        </div>
                         <h3 className={cn(
                           "text-xl font-bold leading-tight mb-2",
                           item.status === 'COMPLETED' ? 'line-through' : ''
-                        )}>
+                        )}
+                        style={{ color: item.color || undefined }}>
                           {item.title}
                         </h3>
                         {item.notes && (
@@ -362,7 +453,8 @@ export default function ListClientView({
                             <h2 className={cn(
                               "text-2xl font-bold truncate",
                               item.status === 'COMPLETED' ? 'line-through' : ''
-                            )}>
+                            )}
+                            style={{ color: item.color || undefined }}>
                               {item.title}
                             </h2>
                             {item.media?.rating && (
@@ -376,6 +468,9 @@ export default function ListClientView({
                             <Badge variant="outline" className="text-[10px] uppercase">
                               {item.mediaType || 'TASK'}
                             </Badge>
+                            {item.tags.map(tag => (
+                              <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} />
+                            ))}
                             {isGame && gameInfo?.esrb && (
                               <Badge variant="outline" className="text-[10px] uppercase font-semibold">
                                 {gameInfo.esrb}
@@ -446,7 +541,7 @@ export default function ListClientView({
         {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
             <p className="text-2xl font-black uppercase">Nothing here yet</p>
-            <p className="font-mono text-sm">No items match this category</p>
+            <p className="font-mono text-sm">No items match this category or filter</p>
           </div>
         )}
       </main>

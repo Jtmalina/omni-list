@@ -28,6 +28,8 @@ import Image from 'next/image'
 import { X, Gamepad2, Loader2, Plus } from 'lucide-react'
 import { fetchStreamingInfoAction, fetchGameDetailsAction } from '@/actions/media'
 import { format } from 'date-fns'
+import { TagManager } from './TagManager'
+import { cn } from '@/lib/utils'
 
 type ItemMode = 'task' | 'film' | 'game'
 
@@ -37,12 +39,14 @@ export default function AddItemDialog({
   onOpenChange,
   buttonVariant = 'default',
   buttonSize = 'default',
+  tagConfigs = {},
 }: {
   listId: string
   initialDate?: Date
   onOpenChange?: (open: boolean) => void
   buttonVariant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link'
   buttonSize?: 'default' | 'sm' | 'lg' | 'icon'
+  tagConfigs?: Record<string, string>
 }) {
   const [open, setOpen] = useState(!!initialDate)
   const [loading, setLoading] = useState(false)
@@ -51,9 +55,20 @@ export default function AddItemDialog({
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
+  const [color, setColor] = useState<string>('')
+  const [tags, setTags] = useState<string[]>([])
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
   const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null)
   const [fetchingDetails, setFetchingDetails] = useState(false)
+
+  const PRESET_COLORS = [
+    { name: 'Blue', value: '#3b82f6' },
+    { name: 'Green', value: '#10b981' },
+    { name: 'Red', value: '#ef4444' },
+    { name: 'Yellow', value: '#f59e0b' },
+    { name: 'Purple', value: '#8b5cf6' },
+    { name: 'Pink', value: '#ec4899' },
+  ]
 
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
@@ -130,6 +145,8 @@ export default function AddItemDialog({
       type: effectiveType,
       mediaType: effectiveMediaType,
       dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : undefined,
+      color: color || undefined,
+      tags,
       mediaMetadata,
     })
 
@@ -142,6 +159,8 @@ export default function AddItemDialog({
     setTitle('')
     setNotes('')
     setDueDate('')
+    setColor('')
+    setTags([])
     setSelectedMedia(null)
     setSelectedGame(null)
     setFetchingDetails(false)
@@ -287,6 +306,43 @@ export default function AddItemDialog({
                 onChange={(e) => setDueDate(e.target.value)}
               />
             </div>
+
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-xs font-bold uppercase text-muted-foreground">Individual Color Override</Label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setColor('')}
+                  className={cn(
+                    "h-8 w-8 rounded-full border-2 transition-all hover:scale-110 flex items-center justify-center bg-background",
+                    color === '' ? "border-primary ring-2 ring-primary/20 ring-offset-1" : "border-transparent"
+                  )}
+                  title="No override"
+                >
+                  <X className="h-3 w-3 text-muted-foreground" />
+                </button>
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c.name}
+                    type="button"
+                    onClick={() => setColor(c.value)}
+                    className={cn(
+                      "h-8 w-8 rounded-full border-2 transition-all hover:scale-110",
+                      color === c.value ? "border-primary ring-2 ring-primary/20 ring-offset-1" : "border-transparent"
+                    )}
+                    style={{ backgroundColor: c.value }}
+                    title={c.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <TagManager 
+              listId={listId} 
+              tags={tags} 
+              onChange={setTags} 
+              tagConfigs={tagConfigs}
+            />
           </div>
           <DialogFooter>
             <Button type="submit" disabled={loading}>

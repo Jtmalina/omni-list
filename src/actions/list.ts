@@ -51,6 +51,24 @@ export async function getLists() {
   })
 }
 
+export async function upsertTagConfig(listId: string, name: string, color: string) {
+  await verifyListAccess(listId, 'EDIT')
+  
+  await prisma.tagConfig.upsert({
+    where: {
+      listId_name: { listId, name }
+    },
+    update: { color },
+    create: {
+      listId,
+      name,
+      color
+    }
+  })
+
+  revalidatePath(`/list/${listId}`)
+}
+
 export async function deleteList(id: string) {
   // Only owner can delete a list
   await verifyListAccess(id, 'OWNER')
