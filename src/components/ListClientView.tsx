@@ -201,6 +201,131 @@ export default function ListClientView({
     )
   }
 
+  // Classic Full-Width Layout for TODO Lists
+  if (!isMediaList) {
+    return (
+      <div className="space-y-8">
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
+            <p className="text-muted-foreground font-mono">
+              {filteredItems.length} of {items.length} notes tracking
+              {accessLevel && accessLevel !== 'OWNER' && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {canEdit && (
+              <AddItemDialog 
+                listId={list.id} 
+                onOpenChange={handleOpenChange}
+                tagConfigs={tagConfigsMap}
+                allExistingTags={allTags}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search notes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 pr-10 h-11 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary rounded-xl"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+            >
+              <X className="h-3 w-3 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          {filteredItems.map((item, index) => {
+            const colorClass = postItColors[index % postItColors.length]
+            const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
+            
+            return (
+              <div 
+                key={item.id} 
+                className={cn(
+                  "transition-transform hover:rotate-0 hover:scale-105 duration-200",
+                  rotationClass
+                )}
+              >
+                <Card className={cn(
+                  "h-64 shadow-xl border-t-8 border-none flex flex-col relative",
+                  colorClass,
+                  item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
+                )}>
+                  <CardContent className="p-6 flex flex-col h-full">
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                      <ItemActions 
+                        id={item.id} 
+                        status={item.status} 
+                        listId={list.id} 
+                        mediaType={item.mediaType} 
+                        isRadarrEnabled={isRadarrEnabled}
+                        isSonarrEnabled={isSonarrEnabled}
+                        canEdit={canEdit}
+                        isOwner={isOwner}
+                      />
+                    </div>
+
+                    <div className="mt-4 flex-1 overflow-hidden">
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {item.tags.map(tag => (
+                          <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[8px] px-1.5 py-0" />
+                        ))}
+                      </div>
+                      <h3 className={cn(
+                        "text-xl font-bold leading-tight mb-2",
+                        item.status === 'COMPLETED' ? 'line-through' : ''
+                      )}
+                      style={{ color: item.color || undefined }}>
+                        {item.title}
+                      </h3>
+                      {item.notes && (
+                        <p className="text-sm opacity-80 line-clamp-4 font-medium italic">
+                          &ldquo;{item.notes}&rdquo;
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-auto pt-4 flex items-center justify-between border-t border-black/5">
+                      <div className="flex gap-1">
+                        <Badge variant="outline" className="text-[9px] border-black/20 uppercase px-1">
+                          {item.type}
+                        </Badge>
+                      </div>
+                      {item.dueDate && (
+                        <span className="text-[10px] font-bold opacity-60">
+                          {new Date(item.dueDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )
+          })}
+        </div>
+
+        {filteredItems.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
+            <p className="text-2xl font-black uppercase">Nothing here yet</p>
+            <p className="font-mono text-sm">No items match your search</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Netflix Dashboard Layout for Media Lists
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
       {/* Sidebar */}
@@ -322,7 +447,9 @@ export default function ListClientView({
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
+        {/* Search Bar */}
         <div className="mb-8 flex items-center gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -343,205 +470,127 @@ export default function ListClientView({
           </div>
         </div>
 
-        {!isMediaList ? (
-          <div className={cn(
-            "grid gap-8 transition-all duration-300",
-            isSidebarCollapsed 
-              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
-              : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
-          )}>
-            {filteredItems.map((item, index) => {
-              const colorClass = postItColors[index % postItColors.length]
-              const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
-              
-              return (
-                <div 
-                  key={item.id} 
-                  className={cn(
-                    "transition-transform hover:rotate-0 hover:scale-105 duration-200",
-                    rotationClass
-                  )}
-                >
-                  <Card className={cn(
-                    "h-64 shadow-xl border-t-8 flex flex-col relative",
-                    colorClass,
-                    item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
-                  )}>
-                    <CardContent className="p-6 flex flex-col h-full">
-                      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
-                        <ItemActions 
-                          id={item.id} 
-                          status={item.status} 
-                          listId={list.id} 
-                          mediaType={item.mediaType} 
-                          isRadarrEnabled={isRadarrEnabled}
-                          isSonarrEnabled={isSonarrEnabled}
-                          canEdit={canEdit}
-                          isOwner={isOwner}
-                        />
+        <div className="space-y-6">
+          {filteredItems.map((item) => {
+            const isGame = item.mediaType === 'GAME'
+            const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
+            const providers = streaming.flatrate || []
+            const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
+
+            return (
+              <Card key={item.id} className={cn(
+                "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20",
+                item.status === 'COMPLETED' ? 'opacity-60 grayscale-[0.3]' : ''
+              )}>
+                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
+                  <div className="relative w-full sm:w-48 h-72 sm:h-auto flex-shrink-0 bg-muted">
+                    {item.media?.posterPath ? (
+                      <Image
+                        src={item.media.posterPath}
+                        alt={item.title}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 100vw, 192px"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> :
+                         item.mediaType === 'GAME' ? <Gamepad2 className="h-12 w-12 opacity-20" /> :
+                         <Tv className="h-12 w-12 opacity-20" />}
                       </div>
-
-                      <div className="mt-4 flex-1 overflow-hidden">
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {item.tags.map(tag => (
-                            <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[8px] px-1.5 py-0" />
-                          ))}
-                        </div>
-                        <h3 className={cn(
-                          "text-xl font-bold leading-tight mb-2",
-                          item.status === 'COMPLETED' ? 'line-through' : ''
-                        )}
-                        style={{ color: item.color || undefined }}>
-                          {item.title}
-                        </h3>
-                        {item.notes && (
-                          <p className="text-sm opacity-80 line-clamp-4 font-medium italic">
-                            &ldquo;{item.notes}&rdquo;
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="mt-auto pt-4 flex items-center justify-between border-t border-black/5">
-                        <div className="flex gap-1">
-                          <Badge variant="outline" className="text-[9px] border-black/20 uppercase px-1">
-                            {item.type}
-                          </Badge>
-                        </div>
-                        {item.dueDate && (
-                          <span className="text-[10px] font-bold opacity-60">
-                            {new Date(item.dueDate).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )
-            })}
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {filteredItems.map((item) => {
-              const isGame = item.mediaType === 'GAME'
-              const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
-              const providers = streaming.flatrate || []
-              const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
-
-              return (
-                <Card key={item.id} className={cn(
-                  "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20",
-                  item.status === 'COMPLETED' ? 'opacity-60 grayscale-[0.3]' : ''
-                )}>
-                  <CardContent className="p-0 flex flex-col sm:flex-row h-full">
-                    <div className="relative w-full sm:w-48 h-72 sm:h-auto flex-shrink-0 bg-muted">
-                      {item.media?.posterPath ? (
-                        <Image
-                          src={item.media.posterPath}
-                          alt={item.title}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 192px"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> :
-                           item.mediaType === 'GAME' ? <Gamepad2 className="h-12 w-12 opacity-20" /> :
-                           <Tv className="h-12 w-12 opacity-20" />}
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="p-6 flex flex-col flex-1 min-w-0">
-                      <div className="flex justify-between items-start gap-4 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h2 className={cn(
-                              "text-2xl font-bold truncate",
-                              item.status === 'COMPLETED' ? 'line-through' : ''
-                            )}
-                            style={{ color: item.color || undefined }}>
-                              {item.title}
-                            </h2>
-                            {item.media?.rating && (
-                              <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-400/10 text-yellow-600 rounded text-sm font-bold">
-                                <Star className="h-3 w-3 fill-current" />
-                                {item.media.rating.toFixed(1)}
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-[10px] uppercase">
-                              {item.mediaType || 'TASK'}
-                            </Badge>
-                            {item.tags.map(tag => (
-                              <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} />
-                            ))}
-                            {isGame && gameInfo?.esrb && (
-                              <Badge variant="outline" className="text-[10px] uppercase font-semibold">
-                                {gameInfo.esrb}
-                              </Badge>
-                            )}
-                            {item.dueDate && (
-                              <span className="text-xs text-muted-foreground font-medium italic">
-                                Expected: {new Date(item.dueDate).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <ItemActions 
-                          id={item.id} 
-                          status={item.status} 
-                          listId={list.id} 
-                          mediaType={item.mediaType} 
-                          isRadarrEnabled={isRadarrEnabled}
-                          isSonarrEnabled={isSonarrEnabled}
-                          canEdit={canEdit}
-                          isOwner={isOwner}
-                        />
-                      </div>
-
-                      <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
-                        {item.notes || "No description provided."}
-                      </p>
-
-                      <div className="mt-auto flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          {item.status === 'COMPLETED' ? (
-                            <Badge className="bg-green-500 hover:bg-green-600">
-                              {isGame ? 'Completed' : 'Finished'}
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">
-                              {isGame ? 'Playing' : 'Currently Watching'}
-                            </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="p-6 flex flex-col flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-4 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h2 className={cn(
+                            "text-2xl font-bold truncate",
+                            item.status === 'COMPLETED' ? 'line-through' : ''
+                          )}
+                          style={{ color: item.color || undefined }}>
+                            {item.title}
+                          </h2>
+                          {item.media?.rating && (
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-400/10 text-yellow-600 rounded text-sm font-bold">
+                              <Star className="h-3 w-3 fill-current" />
+                              {item.media.rating.toFixed(1)}
+                            </div>
                           )}
                         </div>
-
-                        {!isGame && providers.length > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
-                            <div className="flex -space-x-2">
-                              {providers.slice(0, 3).map((provider: any) => (
-                                <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
-                                  <Image
-                                    src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
-                                    alt={provider.provider_name}
-                                    fill
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : null}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] uppercase">
+                            {item.mediaType || 'TASK'}
+                          </Badge>
+                          {item.tags.map(tag => (
+                            <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} />
+                          ))}
+                          {isGame && gameInfo?.esrb && (
+                            <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                              {gameInfo.esrb}
+                            </Badge>
+                          )}
+                          {item.dueDate && (
+                            <span className="text-xs text-muted-foreground font-medium italic">
+                              Expected: {new Date(item.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      <ItemActions 
+                        id={item.id} 
+                        status={item.status} 
+                        listId={list.id} 
+                        mediaType={item.mediaType} 
+                        isRadarrEnabled={isRadarrEnabled}
+                        isSonarrEnabled={isSonarrEnabled}
+                        canEdit={canEdit}
+                        isOwner={isOwner}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )}
+
+                    <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
+                      {item.notes || "No description provided."}
+                    </p>
+
+                    <div className="mt-auto flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {item.status === 'COMPLETED' ? (
+                          <Badge className="bg-green-500 hover:bg-green-600">
+                            {isGame ? 'Completed' : 'Finished'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            {isGame ? 'Playing' : 'Currently Watching'}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {!isGame && providers.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
+                          <div className="flex -space-x-2">
+                            {providers.slice(0, 3).map((provider: any) => (
+                              <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
+                                <Image
+                                  src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
+                                  alt={provider.provider_name}
+                                  fill
+                                  className="object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
 
         {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
