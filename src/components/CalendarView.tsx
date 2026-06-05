@@ -34,6 +34,7 @@ interface CalendarViewProps {
   canEdit?: boolean
   isOwner?: boolean
   tagConfigs?: Record<string, string>
+  allExistingTags?: string[]
 }
 
 export default function CalendarView({ 
@@ -44,7 +45,8 @@ export default function CalendarView({
   isSonarrEnabled,
   canEdit = true,
   isOwner = false,
-  tagConfigs = {}
+  tagConfigs = {},
+  allExistingTags = []
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [isPending, startTransition] = useTransition()
@@ -98,6 +100,7 @@ export default function CalendarView({
         canEdit={canEdit}
         isOwner={isOwner}
         tagConfigs={tagConfigs}
+        allExistingTags={allExistingTags}
       />
       <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
         {/* Calendar Header */}
