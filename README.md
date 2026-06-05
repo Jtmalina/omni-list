@@ -5,7 +5,7 @@ OmniList is a professional, visual task and media management application built f
 ## ✨ Core Features
 
 ### 🎬 Media Command Center
-- **Radarr & Sonarr Integration:** Direct "one-click" movie and TV show requests to your home server.
+- **[Radarr](https://radarr.video/) & [Sonarr](https://sonarr.tv/) Integration:** Direct "one-click" movie and TV show requests to your home server.
 - **Real-time Status Tracking:** Live feedback for downloads, including percentage progress, library detection, and monitored status badges.
 - **Library Management:** Remotely remove media from your server directly from the UI, with options to delete library entries or wipe actual disk files.
 - **Netflix-style Dashboard:** A dedicated media view with a hideable sidebar for quick filtering between Movies, TV, and Games.
@@ -34,25 +34,41 @@ OmniList is a professional, visual task and media management application built f
 ### Prerequisites
 
 - **Node.js:** v20.10.0 or higher
-- **PostgreSQL:** (Local or via Supabase)
-- **Home Server (Optional):** Radarr/Sonarr instances reachable via public URL (e.g., Tailscale Funnel or Cloudflare Tunnel).
+- **PostgreSQL:** (Local or via [Supabase](https://supabase.com/))
+- **Home Server (Optional):** Radarr/Sonarr instances reachable via public URL (e.g., [Tailscale Funnel](https://tailscale.com/kb/1223/funnel/) or [Cloudflare Tunnel](https://www.cloudflare.com/products/tunnel/)).
 
 ### Setup Instructions
 
 1. **Clone & Install:**
    ```bash
    git clone <your-repo-url>
+   cd omni-list
    npm install
    ```
 
 2. **Configure Environment Variables:**
-   Create a `.env` file with your database URI, `AUTH_SECRET`, and OAuth keys. Also include:
+   Create a `.env` file in the root directory and add the following:
    ```env
+   # Database (Supabase URI)
+   DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
+
+   # Auth.js Secrets
+   AUTH_SECRET="your-auth-secret" # Generate with: npx auth secret
+
+   # OAuth Credentials (GitHub/Google)
+   AUTH_GITHUB_ID="your-github-client-id"
+   AUTH_GITHUB_SECRET="your-github-client-secret"
+   AUTH_GOOGLE_ID="your-google-client-id"
+   AUTH_GOOGLE_SECRET="your-google-client-secret"
+
+   # Security & APIs
    # Master key for API key encryption (64-char hex string)
+   # Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ENCRYPTION_KEY="your-generated-32-byte-key"
    
-   # For Sonarr TVDB mapping
+   # External API Keys
    TMDB_API_KEY="your-themoviedb-api-key"
+   RAWG_API_KEY="your-rawg-api-key"
    ```
 
 3. **Initialize & Run:**
@@ -64,14 +80,15 @@ OmniList is a professional, visual task and media management application built f
 
 ## 🛠 Tech Stack
 
-- **Framework:** Next.js 15 (App Router)
-- **Database:** PostgreSQL (via Supabase)
-- **ORM:** Prisma
-- **Auth:** Auth.js v5 (NextAuth)
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Notifications:** Sonner
-- **Icons:** Lucide React
-- **Testing:** Vitest & Playwright
+- **Framework:** [Next.js 15](https://nextjs.org/) (App Router)
+- **Database:** [PostgreSQL](https://www.postgresql.org/) (via [Supabase](https://supabase.com/))
+- **ORM:** [Prisma](https://www.prisma.io/)
+- **Auth:** [Auth.js v5](https://authjs.dev/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
+- **Notifications:** [Sonner](https://sonner.emilkowal.ski/)
+- **Media APIs:** [TMDB](https://www.themoviedb.org/) & [RAWG](https://rawg.io/)
+- **Icons:** [Lucide React](https://lucide.dev/)
+- **Testing:** [Vitest](https://vitest.dev/) & [Playwright](https://playwright.dev/)
 
 ## 📄 License
 
