@@ -201,15 +201,18 @@ export default function ListClientView({
     )
   }
 
-  // Classic Full-Width Layout for TODO Lists
+  // Classic Cork Board Layout for TODO Lists
   if (!isMediaList) {
     return (
-      <div className="space-y-8">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
-            <p className="text-muted-foreground font-mono">
-              {filteredItems.length} of {items.length} notes tracking
+      <div className="space-y-8 min-h-[calc(100vh-12rem)] p-10 rounded-[2.5rem] relative overflow-hidden bg-[#bc8a5f] shadow-[inset_0_4px_12px_rgba(0,0,0,0.2)] border-[12px] border-[#8d5d3e]">
+        {/* Cork Texture Overlay */}
+        <div className="absolute inset-0 opacity-30 pointer-events-none bg-[radial-gradient(#000_1.5px,transparent_1px)] [background-size:6px_6px]" />
+        
+        <div className="relative z-10 flex justify-between items-start">
+          <div className="bg-background/80 backdrop-blur-md px-6 py-3 rounded-2xl border shadow-lg">
+            <h1 className="text-4xl font-black uppercase tracking-tighter text-foreground">{list.title}</h1>
+            <p className="text-muted-foreground font-mono text-xs font-bold uppercase tracking-widest mt-1">
+              {filteredItems.length} of {items.length} notes pinned
               {accessLevel && accessLevel !== 'OWNER' && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
             </p>
           </div>
@@ -226,43 +229,49 @@ export default function ListClientView({
         </div>
 
         {/* Search Bar */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative max-w-md z-10">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search notes..."
+            placeholder="Find a note..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 h-11 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary rounded-xl"
+            className="pl-12 pr-10 h-12 bg-background/90 backdrop-blur-md border-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-2xl shadow-lg text-lg"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full transition-colors"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-muted rounded-full transition-colors"
             >
-              <X className="h-3 w-3 text-muted-foreground" />
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-12">
           {filteredItems.map((item, index) => {
             const colorClass = postItColors[index % postItColors.length]
-            const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
+            const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-2'
             
             return (
               <div 
                 key={item.id} 
                 className={cn(
-                  "transition-transform hover:rotate-0 hover:scale-105 duration-200",
+                  "transition-transform hover:rotate-0 hover:scale-105 duration-300 relative pt-6",
                   rotationClass
                 )}
               >
+                {/* Visual Thumbtack */}
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-5 h-5 rounded-full bg-red-600 shadow-[0_3px_6px_rgba(0,0,0,0.4),inset_0_-2px_4px_rgba(0,0,0,0.3)] border-2 border-red-700 after:content-[''] after:absolute after:top-1.5 after:left-1.5 after:w-1.5 after:h-1.5 after:bg-white/40 after:rounded-full" />
+                
                 <Card className={cn(
-                  "h-64 shadow-xl border-t-8 border-none flex flex-col relative",
+                  "h-64 shadow-2xl border-t-[10px] border-none flex flex-col relative overflow-hidden rounded-sm",
                   colorClass,
-                  item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
+                  item.status === 'COMPLETED' ? 'opacity-60 grayscale-[0.3]' : ''
                 )}>
-                  <CardContent className="p-6 flex flex-col h-full">
+                  {/* Paper Texture Overlay */}
+                  <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/felt.png')]" />
+                  
+                  <CardContent className="p-6 flex flex-col h-full relative z-10">
                     <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                       <ItemActions 
                         id={item.id} 
@@ -279,32 +288,32 @@ export default function ListClientView({
                     <div className="mt-4 flex-1 overflow-hidden">
                       <div className="flex flex-wrap gap-1 mb-2">
                         {item.tags.map(tag => (
-                          <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[8px] px-1.5 py-0" />
+                          <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[8px] px-1.5 py-0 border-black/10 bg-black/5" />
                         ))}
                       </div>
                       <h3 className={cn(
-                        "text-xl font-bold leading-tight mb-2",
-                        item.status === 'COMPLETED' ? 'line-through' : ''
+                        "text-xl font-bold leading-tight mb-2 tracking-tight",
+                        item.status === 'COMPLETED' ? 'line-through opacity-50' : ''
                       )}
-                      style={{ color: item.color || undefined }}>
+                      style={{ color: item.color || 'inherit' }}>
                         {item.title}
                       </h3>
                       {item.notes && (
-                        <p className="text-sm opacity-80 line-clamp-4 font-medium italic">
+                        <p className="text-sm opacity-80 line-clamp-4 font-medium italic leading-relaxed">
                           &ldquo;{item.notes}&rdquo;
                         </p>
                       )}
                     </div>
 
-                    <div className="mt-auto pt-4 flex items-center justify-between border-t border-black/5">
+                    <div className="mt-auto pt-4 flex items-center justify-between border-t border-black/10">
                       <div className="flex gap-1">
-                        <Badge variant="outline" className="text-[9px] border-black/20 uppercase px-1">
+                        <Badge variant="outline" className="text-[9px] border-black/10 bg-black/5 uppercase px-1 font-black">
                           {item.type}
                         </Badge>
                       </div>
                       {item.dueDate && (
-                        <span className="text-[10px] font-bold opacity-60">
-                          {new Date(item.dueDate).toLocaleDateString()}
+                        <span className="text-[10px] font-black opacity-40 uppercase">
+                          {new Date(item.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </span>
                       )}
                     </div>
@@ -316,9 +325,9 @@ export default function ListClientView({
         </div>
 
         {filteredItems.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
-            <p className="text-2xl font-black uppercase">Nothing here yet</p>
-            <p className="font-mono text-sm">No items match your search</p>
+          <div className="relative z-10 flex flex-col items-center justify-center py-32 border-4 border-dashed border-white/20 rounded-[2rem] bg-black/5">
+            <p className="text-3xl font-black uppercase text-white/40 tracking-tighter">The board is empty</p>
+            <p className="font-mono text-sm text-white/30 font-bold uppercase tracking-widest mt-2">No notes match your search</p>
           </div>
         )}
       </div>
