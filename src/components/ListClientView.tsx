@@ -208,8 +208,8 @@ export default function ListClientView({
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
-            <p className="text-muted-foreground font-mono text-xs">
-              {filteredItems.length} of {items.length} notes tracking
+            <p className="text-muted-foreground font-mono text-xs font-bold uppercase tracking-widest mt-1">
+              {filteredItems.length} of {items.length} notes pinned
               {accessLevel && accessLevel !== 'OWNER' && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
             </p>
           </div>
@@ -249,6 +249,14 @@ export default function ListClientView({
             const colorClass = postItColors[index % postItColors.length]
             const rotationClass = index % 2 === 0 ? 'rotate-1' : '-rotate-1'
             
+            // Priority: Item Color > Tag Color > Preset Color
+            const baseColor = item.color || (item.tags[0] ? tagConfigsMap[item.tags[0]] : null)
+            const style = baseColor ? {
+              backgroundColor: `${baseColor}1A`, // 10% opacity for the "paper" feel
+              borderTopColor: baseColor,
+              color: baseColor, // Stronger text color for scannability
+            } : {}
+
             return (
               <div 
                 key={item.id} 
@@ -260,11 +268,14 @@ export default function ListClientView({
                 {/* Visual Thumbtack - Pinned directly to the card */}
                 <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 w-4 h-4 rounded-full bg-red-600 shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_-2px_4px_rgba(0,0,0,0.2)] border border-red-700 after:content-[''] after:absolute after:top-1/2 after:left-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:w-1.5 after:h-1.5 after:bg-white/30 after:rounded-full" />
                 
-                <Card className={cn(
-                  "h-64 shadow-xl border-t-8 border-none flex flex-col relative overflow-hidden",
-                  colorClass,
-                  item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
-                )}>
+                <Card 
+                  className={cn(
+                    "h-64 shadow-xl border-t-8 border-none flex flex-col relative overflow-hidden",
+                    !baseColor && colorClass,
+                    item.status === 'COMPLETED' ? 'opacity-40 grayscale-[0.5]' : ''
+                  )}
+                  style={style}
+                >
                   <CardContent className="p-6 flex flex-col h-full">
                     <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                       <ItemActions 
@@ -272,7 +283,7 @@ export default function ListClientView({
                         status={item.status} 
                         listId={list.id} 
                         mediaType={item.mediaType} 
-                        isRadarrEnabled={isRadarrEnabled}
+                        isRadarrEnabled={isRadarrEnabled} 
                         isSonarrEnabled={isSonarrEnabled}
                         canEdit={canEdit}
                         isOwner={isOwner}
@@ -289,7 +300,7 @@ export default function ListClientView({
                         "text-xl font-bold leading-tight mb-2",
                         item.status === 'COMPLETED' ? 'line-through' : ''
                       )}
-                      style={{ color: item.color || undefined }}>
+                      style={{ color: baseColor ? 'inherit' : undefined }}>
                         {item.title}
                       </h3>
                       {item.notes && (
