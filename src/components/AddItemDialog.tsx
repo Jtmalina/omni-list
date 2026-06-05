@@ -40,6 +40,7 @@ export default function AddItemDialog({
   buttonVariant = 'default',
   buttonSize = 'default',
   tagConfigs = {},
+  allExistingTags = [],
 }: {
   listId: string
   initialDate?: Date
@@ -47,6 +48,7 @@ export default function AddItemDialog({
   buttonVariant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link'
   buttonSize?: 'default' | 'sm' | 'lg' | 'icon'
   tagConfigs?: Record<string, string>
+  allExistingTags?: string[]
 }) {
   const [open, setOpen] = useState(!!initialDate)
   const [loading, setLoading] = useState(false)
@@ -342,6 +344,7 @@ export default function AddItemDialog({
               tags={tags} 
               onChange={setTags} 
               tagConfigs={tagConfigs}
+              allExistingTags={allExistingTags}
             />
           </div>
           <DialogFooter>

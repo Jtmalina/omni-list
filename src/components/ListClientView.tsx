@@ -181,6 +181,7 @@ export default function ListClientView({
                 initialDate={selectedDate} 
                 onOpenChange={handleOpenChange}
                 tagConfigs={tagConfigsMap}
+                allExistingTags={allTags}
               />
             )}
           </div>
@@ -194,6 +195,7 @@ export default function ListClientView({
           canEdit={canEdit}
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
+          allExistingTags={allTags}
         />
       </>
     )
@@ -201,6 +203,7 @@ export default function ListClientView({
 
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
+      {/* Sidebar */}
       <aside 
         className={cn(
           "shrink-0 lg:sticky lg:top-24 transition-all duration-300 ease-in-out pb-10",
@@ -313,6 +316,7 @@ export default function ListClientView({
               buttonVariant={isSidebarCollapsed ? "ghost" : "default"}
               buttonSize={isSidebarCollapsed ? "icon" : "default"}
               tagConfigs={tagConfigsMap}
+              allExistingTags={allTags}
             />
           )}
         </div>

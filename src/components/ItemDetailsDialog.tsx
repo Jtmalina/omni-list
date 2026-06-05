@@ -36,6 +36,7 @@ interface ItemDetailsDialogProps {
   canEdit?: boolean
   isOwner?: boolean
   tagConfigs?: Record<string, string>
+  allExistingTags?: string[]
 }
 
 export default function ItemDetailsDialog({
@@ -48,6 +49,7 @@ export default function ItemDetailsDialog({
   canEdit = true,
   isOwner = false,
   tagConfigs = {},
+  allExistingTags = [],
 }: ItemDetailsDialogProps) {
   const [isPending, startTransition] = useTransition()
   const [isEditing, setIsEditing] = useState(false)
@@ -211,6 +213,7 @@ export default function ItemDetailsDialog({
                 tags={editTags} 
                 onChange={setEditTags} 
                 tagConfigs={tagConfigs}
+                allExistingTags={allExistingTags}
               />
             </div>
           ) : (
