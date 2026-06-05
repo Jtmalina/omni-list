@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { Item, ItemStatus, MediaType, MediaMetadata } from '@prisma/client'
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import ItemActions from './ItemActions'
 import { TagBadge } from './TagBadge'
 import { TagManager } from './TagManager'
+import { format } from 'date-fns'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -55,20 +56,25 @@ export default function ItemDetailsDialog({
   const [isEditing, setIsEditing] = useState(false)
   
   // Edit states
-  const [editTitle, setEditTitle] = useState(item?.title || '')
-  const [editNotes, setEditNotes] = useState(item?.notes || '')
-  const [editColor, setEditColor] = useState(item?.color || '')
-  const [editTags, setEditTags] = useState<string[]>(item?.tags || [])
+  const [editTitle, setEditTitle] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editColor, setEditColor] = useState('')
+  const [editTags, setEditTags] = useState<string[]>([])
+  const [editDueDate, setEditDueDate] = useState('')
 
-  // Sync edit state when item changes
-  useState(() => {
-    if (item) {
+  // Sync edit state when item changes or dialog opens
+  useEffect(() => {
+    if (item && isOpen) {
       setEditTitle(item.title)
       setEditNotes(item.notes || '')
       setEditColor(item.color || '')
       setEditTags(item.tags || [])
+      setEditDueDate(item.dueDate ? format(new Date(item.dueDate), 'yyyy-MM-dd') : '')
     }
-  })
+    if (!isOpen) {
+      setIsEditing(false)
+    }
+  }, [item, isOpen])
 
   if (!item) return null
 
@@ -101,6 +107,7 @@ export default function ItemDetailsDialog({
         notes: editNotes,
         color: editColor || null,
         tags: editTags,
+        dueDate: editDueDate ? new Date(editDueDate + 'T00:00:00') : null,
         listId
       })
       setIsEditing(false)
@@ -122,11 +129,15 @@ export default function ItemDetailsDialog({
           <div className="flex justify-between items-start pr-8">
             <div className="space-y-1 flex-1">
               {isEditing ? (
-                <Input 
-                  value={editTitle} 
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="text-2xl font-bold h-auto py-1"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="edit-title" className="text-xs font-bold uppercase text-muted-foreground">Title</Label>
+                  <Input 
+                    id="edit-title"
+                    value={editTitle} 
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="text-lg font-bold h-auto py-1"
+                  />
+                </div>
               ) : (
                 <DialogTitle className="text-2xl font-bold">{item.title}</DialogTitle>
               )}
@@ -169,12 +180,23 @@ export default function ItemDetailsDialog({
           {isEditing ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground">Notes</Label>
+                <Label htmlFor="edit-notes" className="text-xs font-bold uppercase text-muted-foreground">Description / Notes</Label>
                 <Textarea 
+                  id="edit-notes"
                   value={editNotes} 
                   onChange={(e) => setEditNotes(e.target.value)}
                   placeholder="Add details..."
                   className="min-h-[100px] text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-date" className="text-xs font-bold uppercase text-muted-foreground">Due Date</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
                 />
               </div>
 
