@@ -12,6 +12,7 @@ import Image from 'next/image'
 import CalendarView from './CalendarView'
 import { Input } from '@/components/ui/input'
 import { TagBadge } from './TagBadge'
+import ItemDetailsDialog from './ItemDetailsDialog'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -67,6 +68,7 @@ export default function ListClientView({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedColors, setSelectedColors] = useState<string[]>([])
+  const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
 
   const tagConfigsMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -205,10 +207,20 @@ export default function ListClientView({
   if (!isMediaList) {
     return (
       <div className="space-y-8">
+        <ItemDetailsDialog
+          item={selectedItem}
+          listId={list.id}
+          isOpen={!!selectedItem}
+          onClose={() => setSelectedItem(null)}
+          canEdit={canEdit}
+          isOwner={isOwner}
+          tagConfigs={tagConfigsMap}
+          allExistingTags={allTags}
+        />
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
-            <p className="text-muted-foreground font-mono text-xs font-bold uppercase tracking-widest mt-1">
+            <p className="text-muted-foreground font-mono text-xs">
               {filteredItems.length} of {items.length} notes pinned
               {accessLevel && accessLevel !== 'OWNER' && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
             </p>
@@ -254,14 +266,14 @@ export default function ListClientView({
             const style = baseColor ? {
               backgroundColor: `${baseColor}1A`, // 10% opacity for the "paper" feel
               borderTopColor: baseColor,
-              color: baseColor, // Stronger text color for scannability
             } : {}
 
             return (
               <div 
                 key={item.id} 
+                onClick={() => setSelectedItem(item)}
                 className={cn(
-                  "transition-transform hover:rotate-0 hover:scale-105 duration-200 relative pt-4",
+                  "transition-transform hover:rotate-0 hover:scale-105 duration-200 relative pt-4 cursor-pointer",
                   rotationClass
                 )}
               >
@@ -277,7 +289,7 @@ export default function ListClientView({
                   style={style}
                 >
                   <CardContent className="p-6 flex flex-col h-full">
-                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end" onClick={(e) => e.stopPropagation()}>
                       <ItemActions 
                         id={item.id} 
                         status={item.status} 
@@ -297,14 +309,13 @@ export default function ListClientView({
                         ))}
                       </div>
                       <h3 className={cn(
-                        "text-xl font-bold leading-tight mb-2",
-                        item.status === 'COMPLETED' ? 'line-through' : ''
-                      )}
-                      style={{ color: baseColor ? 'inherit' : undefined }}>
+                        "text-xl font-bold leading-tight mb-2 text-slate-900",
+                        item.status === 'COMPLETED' ? 'line-through opacity-50' : ''
+                      )}>
                         {item.title}
                       </h3>
                       {item.notes && (
-                        <p className="text-sm opacity-80 line-clamp-4 font-medium italic">
+                        <p className="text-sm text-slate-700 line-clamp-4 font-medium italic">
                           &ldquo;{item.notes}&rdquo;
                         </p>
                       )}
@@ -317,7 +328,7 @@ export default function ListClientView({
                         </Badge>
                       </div>
                       {item.dueDate && (
-                        <span className="text-[10px] font-bold opacity-60">
+                        <span className="text-[10px] font-bold opacity-60 text-slate-900">
                           {new Date(item.dueDate).toLocaleDateString()}
                         </span>
                       )}
@@ -342,6 +353,18 @@ export default function ListClientView({
   // Netflix Dashboard Layout for Media Lists
   return (
     <div className="flex flex-col lg:flex-row gap-8 items-start">
+      <ItemDetailsDialog
+        item={selectedItem}
+        listId={list.id}
+        isOpen={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        isRadarrEnabled={isRadarrEnabled}
+        isSonarrEnabled={isSonarrEnabled}
+        canEdit={canEdit}
+        isOwner={isOwner}
+        tagConfigs={tagConfigsMap}
+        allExistingTags={allTags}
+      />
       {/* Sidebar */}
       <aside 
         className={cn(
@@ -492,8 +515,10 @@ export default function ListClientView({
             const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
 
             return (
-              <Card key={item.id} className={cn(
-                "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20",
+              <Card key={item.id} 
+                onClick={() => setSelectedItem(item)}
+                className={cn(
+                "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20 cursor-pointer",
                 item.status === 'COMPLETED' ? 'opacity-60 grayscale-[0.3]' : ''
               )}>
                 <CardContent className="p-0 flex flex-col sm:flex-row h-full">
@@ -552,16 +577,18 @@ export default function ListClientView({
                           )}
                         </div>
                       </div>
-                      <ItemActions 
-                        id={item.id} 
-                        status={item.status} 
-                        listId={list.id} 
-                        mediaType={item.mediaType} 
-                        isRadarrEnabled={isRadarrEnabled}
-                        isSonarrEnabled={isSonarrEnabled}
-                        canEdit={canEdit}
-                        isOwner={isOwner}
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <ItemActions 
+                          id={item.id} 
+                          status={item.status} 
+                          listId={list.id} 
+                          mediaType={item.mediaType} 
+                          isRadarrEnabled={isRadarrEnabled} 
+                          isSonarrEnabled={isSonarrEnabled}
+                          canEdit={canEdit}
+                          isOwner={isOwner}
+                        />
+                      </div>
                     </div>
 
                     <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
