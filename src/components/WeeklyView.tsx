@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo } from 'react'
-import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns'
+import { useMemo, useEffect, useRef } from 'react'
+import { format, isSameDay, isToday, addDays, subDays } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -36,16 +36,32 @@ export default function WeeklyView({
   tagConfigs,
   isPending
 }: WeeklyViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
   const weekDays = useMemo(() => {
-    const start = startOfWeek(currentDate)
-    return Array.from({ length: 7 }, (_, i) => addDays(start, i))
+    // Show a 15-day window centered on the current date
+    return Array.from({ length: 15 }, (_, i) => addDays(subDays(currentDate, 7), i))
+  }, [currentDate])
+
+  // Scroll to current day
+  useEffect(() => {
+    if (containerRef.current) {
+      const currentDayElement = containerRef.current.querySelector('[data-current="true"]')
+      if (currentDayElement) {
+        currentDayElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      }
+    }
   }, [currentDate])
 
   const scheduledItems = items.filter((item) => item.dueDate)
 
   return (
-    <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory scrollbar-hide">
+    <div 
+      ref={containerRef}
+      className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory scrollbar-hide"
+    >
       {weekDays.map((day) => {
+        const isSelected = isSameDay(day, currentDate)
         const dayItems = scheduledItems.filter((item) =>
           item.dueDate && isSameDay(new Date(item.dueDate), day)
         )
@@ -53,9 +69,10 @@ export default function WeeklyView({
         return (
           <div
             key={day.toString()}
+            data-current={isSelected}
             className={cn(
               "flex-shrink-0 w-[85vw] sm:w-[300px] snap-center bg-background border rounded-2xl flex flex-col h-[500px] shadow-sm transition-all",
-              isToday(day) && "ring-2 ring-primary ring-offset-2"
+              isToday(day) ? "ring-2 ring-primary ring-offset-2 border-primary" : isSelected ? "border-primary/40 bg-primary/[0.02]" : "border-muted"
             )}
           >
             {/* Day Header */}
@@ -114,12 +131,15 @@ export default function WeeklyView({
                           </h4>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {item.tags.slice(0, 2).map(tag => (
-                              <TagBadge key={tag} name={tag} color={tagConfigs[tag]} className="text-[8px] px-1 py-0" />
+                              <TagBadge key={tag} name={tag} color={tagConfigs[tag]} className="text-[8px] px-1.5 py-0" />
                             ))}
                           </div>
                         </div>
                         <button
-                          onClick={(e) => onStatusToggle(item, e)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onStatusToggle(item, e)
+                          }}
                           disabled={isPending}
                           className="flex-shrink-0"
                         >
@@ -142,7 +162,10 @@ export default function WeeklyView({
 
                       {canEdit && (
                         <button
-                          onClick={(e) => onDeleteClick(item, e)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDeleteClick(item, e)
+                          }}
                           disabled={isPending}
                           className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-destructive p-1"
                         >

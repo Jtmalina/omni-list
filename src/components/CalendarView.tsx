@@ -57,13 +57,16 @@ export default function CalendarView({
   allExistingTags = []
 }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('MONTH')
+  const [hasManuallySwitched, setHasManuallySwitched] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isPending, startTransition] = useTransition()
   const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
 
-  // Responsive switching
+  // Responsive switching - only if user hasn't chosen a view manually
   useEffect(() => {
     const handleResize = () => {
+      if (hasManuallySwitched) return
+      
       if (window.innerWidth < 640) {
         setViewMode('DAY')
       } else if (window.innerWidth < 1024) {
@@ -73,10 +76,15 @@ export default function CalendarView({
       }
     }
 
-    handleResize() // Initial check
+    handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  }, [hasManuallySwitched])
+
+  const handleModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    setHasManuallySwitched(true)
+  }
 
   const next = () => {
     if (viewMode === 'MONTH') setCurrentDate(addMonths(currentDate, 1))
@@ -171,7 +179,7 @@ export default function CalendarView({
             return (
               <button
                 key={mode.id}
-                onClick={() => setViewMode(mode.id as ViewMode)}
+                onClick={() => handleModeChange(mode.id as ViewMode)}
                 className={cn(
                   "flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all",
                   isActive ? "bg-background text-foreground shadow-sm scale-[1.02]" : "text-muted-foreground hover:text-foreground"
