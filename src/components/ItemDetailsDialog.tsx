@@ -61,6 +61,7 @@ export default function ItemDetailsDialog({
   const [editColor, setEditColor] = useState('')
   const [editTags, setEditTags] = useState<string[]>([])
   const [editDueDate, setEditDueDate] = useState('')
+  const [editDueTime, setEditDueTime] = useState('')
 
   // Sync edit state when item changes or dialog opens
   useEffect(() => {
@@ -70,6 +71,7 @@ export default function ItemDetailsDialog({
       setEditColor(item.color || '')
       setEditTags(item.tags || [])
       setEditDueDate(item.dueDate ? format(new Date(item.dueDate), 'yyyy-MM-dd') : '')
+      setEditDueTime(item.dueDate ? format(new Date(item.dueDate), 'HH:mm') : '')
     }
     if (!isOpen) {
       setIsEditing(false)
@@ -107,7 +109,7 @@ export default function ItemDetailsDialog({
         notes: editNotes,
         color: editColor || null,
         tags: editTags,
-        dueDate: editDueDate ? new Date(editDueDate + 'T00:00:00') : null,
+        dueDate: editDueDate ? new Date(`${editDueDate}T${editDueTime || '00:00'}:00`) : null,
         listId
       })
       setIsEditing(false)
@@ -146,8 +148,8 @@ export default function ItemDetailsDialog({
                   {item.mediaType || item.type}
                 </Badge>
                 {item.dueDate && (
-                  <span className="text-xs text-muted-foreground">
-                    Due: {new Date(item.dueDate).toLocaleDateString()}
+                  <span className="text-xs text-muted-foreground font-bold">
+                    {format(new Date(item.dueDate), 'MMM d, h:mm a')}
                   </span>
                 )}
                 {!isEditing && item.tags.map(tag => (
@@ -190,14 +192,25 @@ export default function ItemDetailsDialog({
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-date" className="text-xs font-bold uppercase text-muted-foreground">Due Date</Label>
-                <Input
-                  id="edit-date"
-                  type="date"
-                  value={editDueDate}
-                  onChange={(e) => setEditDueDate(e.target.value)}
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date" className="text-xs font-bold uppercase text-muted-foreground">Due Date</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-time" className="text-xs font-bold uppercase text-muted-foreground">Time</Label>
+                  <Input
+                    id="edit-time"
+                    type="time"
+                    value={editDueTime}
+                    onChange={(e) => setEditDueTime(e.target.value)}
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">

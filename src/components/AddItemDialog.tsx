@@ -57,6 +57,7 @@ export default function AddItemDialog({
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
+  const [dueTime, setDueTime] = useState('')
   const [color, setColor] = useState<string>('')
   const [tags, setTags] = useState<string[]>([])
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
@@ -146,7 +147,7 @@ export default function AddItemDialog({
       listId,
       type: effectiveType,
       mediaType: effectiveMediaType,
-      dueDate: dueDate ? new Date(dueDate + 'T00:00:00') : undefined,
+      dueDate: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : undefined,
       color: color || undefined,
       tags,
       mediaMetadata,
@@ -161,6 +162,7 @@ export default function AddItemDialog({
     setTitle('')
     setNotes('')
     setDueDate('')
+    setDueTime('')
     setColor('')
     setTags([])
     setSelectedMedia(null)
@@ -299,14 +301,25 @@ export default function AddItemDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="dueDate">Due Date (Optional)</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Date (Optional)</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueTime">Time (Optional)</Label>
+                <Input
+                  id="dueTime"
+                  type="time"
+                  value={dueTime}
+                  onChange={(e) => setDueTime(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="space-y-3 pt-2 border-t">
