@@ -25,6 +25,11 @@ model User {
   // Shared lists access
   listAccess             ListAccess[]
 
+  // Automation & Follows
+  follows               Follow[]
+  autoAddListId         String?
+  lastLoginAt           DateTime? @default(now())
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -186,4 +191,26 @@ model MediaMetadata {
   rating        Float?
   externalId    String?
   streamingInfo Json?
+}
+
+enum FollowType {
+  PERSON
+  STUDIO
+  SERIES
+}
+
+model Follow {
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId    String     // TMDB or RAWG ID
+  type          FollowType
+  mediaType     MediaType
+  name          String
+  posterPath    String?
+  lastCheckedAt DateTime?  @default(now())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([userId, externalId, type])
 }

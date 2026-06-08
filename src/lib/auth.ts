@@ -12,6 +12,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token.sub && session.user) {
         session.user.id = token.sub
+        
+        // Background update for lastLoginAt (throttled)
+        const now = new Date()
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
+        
+        // We don't await this to keep the session response fast
+        prisma.user.updateMany({
+          where: { 
+            id: token.sub,
+            OR: [
+              { lastLoginAt: null },
+              { lastLoginAt: { lt: oneHourAgo } }
+            ]
+          },
+          data: { lastLoginAt: now }
+        }).catch(err => console.error("Failed to update lastLoginAt:", err))
       }
       return session
     },

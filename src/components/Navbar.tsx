@@ -4,6 +4,7 @@ import { auth, signOut } from '@/lib/auth'
 import { Button } from './ui/button'
 import ServarrSettingsDialog from './ServarrSettingsDialog'
 import FriendsDialog from './FriendsDialog'
+import AutomationSettingsDialog from './AutomationSettingsDialog'
 
 export default async function Navbar() {
   const session = await auth()
@@ -22,6 +23,7 @@ export default async function Navbar() {
                 {session.user.email}
               </span>
               <FriendsDialog />
+              <AutomationSettingsDialog />
               <ServarrSettingsDialog />
               <form
                 action={async () => {
