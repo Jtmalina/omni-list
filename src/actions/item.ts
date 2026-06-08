@@ -1,10 +1,11 @@
 'use server'
 
 import prisma from '@/lib/prisma'
-import { ItemStatus, ItemType, MediaType, Prisma } from '@prisma/client'
+import { ItemStatus, ItemType, MediaType, Prisma, ActivityType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { verifyListAccess } from '@/lib/permissions'
+import { logActivity } from '@/lib/activity'
 
 export async function createItem(data: {
   title: string
@@ -22,11 +23,14 @@ export async function createItem(data: {
     streamingInfo?: Record<string, unknown>
   }
 }) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
   try {
     await verifyListAccess(data.listId, 'EDIT')
     const { mediaMetadata, ...itemData } = data
     
-    await prisma.item.create({
+    const item = await prisma.item.create({
       data: {
         ...itemData,
         media: mediaMetadata ? {
@@ -39,6 +43,16 @@ export async function createItem(data: {
         } : undefined
       },
     })
+
+    // Log Activity
+    await logActivity({
+      userId: session.user.id,
+      type: ActivityType.ITEM_CREATED,
+      listId: data.listId,
+      itemId: item.id,
+      itemTitle: item.title
+    })
+
     revalidatePath(`/list/${data.listId}`)
   } catch (error) {
     console.error('Error creating item:', error)
@@ -55,10 +69,13 @@ export async function updateItem(id: string, data: {
   status?: ItemStatus
   listId: string
 }) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
   try {
     await verifyListAccess(data.listId, 'EDIT')
     
-    await prisma.item.update({
+    const item = await prisma.item.update({
       where: { id },
       data: {
         title: data.title,
@@ -69,6 +86,18 @@ export async function updateItem(id: string, data: {
         status: data.status,
       },
     })
+
+    // If status changed to COMPLETED, log it
+    if (data.status === ItemStatus.COMPLETED) {
+      await logActivity({
+        userId: session.user.id,
+        type: ActivityType.ITEM_COMPLETED,
+        listId: data.listId,
+        itemId: item.id,
+        itemTitle: item.title
+      })
+    }
+
     revalidatePath(`/list/${data.listId}`)
   } catch (error) {
     console.error('Error updating item:', error)
@@ -88,18 +117,47 @@ export async function getItems(listId: string) {
 }
 
 export async function updateItemStatus(id: string, status: ItemStatus, listId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
   await verifyListAccess(listId, 'EDIT')
-  await prisma.item.update({
+  const item = await prisma.item.update({
     where: { id },
     data: { status },
   })
+
+  if (status === ItemStatus.COMPLETED) {
+    await logActivity({
+      userId: session.user.id,
+      type: ActivityType.ITEM_COMPLETED,
+      listId,
+      itemId: item.id,
+      itemTitle: item.title
+    })
+  }
+
   revalidatePath(`/list/${listId}`)
 }
 
 export async function deleteItem(id: string, listId: string) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
   await verifyListAccess(listId, 'EDIT')
-  await prisma.item.delete({
-    where: { id },
-  })
+  const item = await prisma.item.findUnique({ where: { id } })
+  
+  if (item) {
+    await logActivity({
+      userId: session.user.id,
+      type: ActivityType.ITEM_DELETED,
+      listId,
+      itemTitle: item.title
+    })
+    
+    await prisma.item.delete({
+      where: { id },
+    })
+  }
+
   revalidatePath(`/list/${listId}`)
 }

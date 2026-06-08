@@ -4,6 +4,7 @@ import { auth, signOut } from '@/lib/auth'
 import { Button } from './ui/button'
 import ServarrSettingsDialog from './ServarrSettingsDialog'
 import FriendsDialog from './FriendsDialog'
+import ActivityFeed from './ActivityFeed'
 import AutomationSettingsDialog from './AutomationSettingsDialog'
 
 export default async function Navbar() {
@@ -22,6 +23,7 @@ export default async function Navbar() {
               <span className="text-sm text-muted-foreground hidden sm:inline-block">
                 {session.user.email}
               </span>
+              <ActivityFeed />
               <FriendsDialog />
               <AutomationSettingsDialog />
               <ServarrSettingsDialog />

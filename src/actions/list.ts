@@ -40,11 +40,14 @@ export async function getLists() {
         select: { items: true },
       },
       user: {
-        select: { name: true, email: true }
+        select: { id: true, name: true, email: true, image: true }
       },
       sharedWith: {
-        where: { userId },
-        select: { accessLevel: true }
+        include: {
+          user: {
+            select: { id: true, name: true, email: true, image: true }
+          }
+        }
       }
     },
     orderBy: { createdAt: 'desc' },

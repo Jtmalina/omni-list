@@ -2,8 +2,9 @@
 
 import prisma from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import { FriendshipStatus } from '@prisma/client'
+import { FriendshipStatus, ActivityType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
+import { logActivity } from '@/lib/activity'
 
 async function getUserId() {
   const session = await auth()
@@ -99,7 +100,8 @@ export async function acceptFriendRequestAction(requestId: string) {
   const userId = await getUserId()
 
   const request = await prisma.friendship.findUnique({
-    where: { id: requestId }
+    where: { id: requestId },
+    include: { sender: true }
   })
 
   if (!request || request.receiverId !== userId) {
@@ -109,6 +111,16 @@ export async function acceptFriendRequestAction(requestId: string) {
   await prisma.friendship.update({
     where: { id: requestId },
     data: { status: FriendshipStatus.ACCEPTED }
+  })
+
+  // Log Activity
+  await logActivity({
+    userId: userId,
+    type: ActivityType.FRIEND_ACCEPTED,
+    metadata: {
+      friendId: request.sender.id,
+      friendName: request.sender.name || request.sender.email
+    }
   })
 
   revalidatePath('/')

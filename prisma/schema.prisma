@@ -30,6 +30,9 @@ model User {
   autoAddListId         String?
   lastLoginAt           DateTime? @default(now())
 
+  // Activities
+  activities            Activity[]
+
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -134,6 +137,7 @@ model List {
   items       Item[]
   sharedWith  ListAccess[]
   tagConfigs  TagConfig[]
+  activities  Activity[]
   createdAt   DateTime     @default(now())
 }
 
@@ -213,4 +217,28 @@ model Follow {
   updatedAt     DateTime   @updatedAt
 
   @@unique([userId, externalId, type])
+}
+
+enum ActivityType {
+  ITEM_CREATED
+  ITEM_COMPLETED
+  ITEM_DELETED
+  LIST_SHARED
+  FRIEND_ACCEPTED
+}
+
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listId    String?
+  list      List?        @relation(fields: [listId], references: [id], onDelete: Cascade)
+  itemId    String?
+  itemTitle String?
+  metadata  Json?        // For storing extra info like "Friend Name" or "List Title"
+  createdAt DateTime     @default(now())
+
+  @@index([listId])
+  @@index([userId])
 }
