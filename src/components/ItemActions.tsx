@@ -20,6 +20,8 @@ export default function ItemActions({
   isSonarrEnabled = false,
   canEdit = true,
   isOwner = false,
+  onStatusToggle,
+  onDelete,
 }: {
   id: string
   status: ItemStatus
@@ -29,6 +31,8 @@ export default function ItemActions({
   isSonarrEnabled?: boolean
   canEdit?: boolean
   isOwner?: boolean
+  onStatusToggle?: () => void
+  onDelete?: () => void
 }) {
   const [isPending, startTransition] = useTransition()
   
@@ -44,18 +48,26 @@ export default function ItemActions({
 
   const toggleStatus = () => {
     if (!canEdit) return
-    const nextStatus = status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
-    startTransition(async () => {
-      await updateItemStatus(id, nextStatus, listId)
-    })
+    if (onStatusToggle) {
+      onStatusToggle()
+    } else {
+      const nextStatus = status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
+      startTransition(async () => {
+        await updateItemStatus(id, nextStatus, listId)
+      })
+    }
   }
 
   const handleDelete = () => {
     if (!canEdit) return
-    if (confirm('Are you sure you want to delete this item?')) {
-      startTransition(async () => {
-        await deleteItem(id, listId)
-      })
+    if (onDelete) {
+      onDelete()
+    } else {
+      if (confirm('Are you sure you want to delete this item?')) {
+        startTransition(async () => {
+          await deleteItem(id, listId)
+        })
+      }
     }
   }
 

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Item, ListType, MediaMetadata, MediaType } from '@prisma/client'
+import { useState, useMemo, useOptimistic, useTransition } from 'react'
+import { Item, ItemStatus, ListType, MediaMetadata, MediaType } from '@prisma/client'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
@@ -13,6 +13,7 @@ import CalendarView from './CalendarView'
 import { Input } from '@/components/ui/input'
 import { TagBadge } from './TagBadge'
 import ItemDetailsDialog from './ItemDetailsDialog'
+import { updateItemStatus, deleteItem } from '@/actions/item'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -62,6 +63,24 @@ export default function ListClientView({
   isOwner = false,
   accessLevel = null
 }: ListClientViewProps) {
+  const [isPending, startTransition] = useTransition()
+  
+  // Optimistic State
+  const [optimisticItems, addOptimisticAction] = useOptimistic(
+    items,
+    (state, action: { type: 'TOGGLE' | 'DELETE', id: string, status?: ItemStatus }) => {
+      if (action.type === 'TOGGLE') {
+        return state.map(item => 
+          item.id === action.id ? { ...item, status: action.status! } : item
+        )
+      }
+      if (action.type === 'DELETE') {
+        return state.filter(item => item.id !== action.id)
+      }
+      return state
+    }
+  )
+
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('ALL')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -82,12 +101,12 @@ export default function ListClientView({
   const { allTags, allColors } = useMemo(() => {
     const tags = new Set<string>()
     const colors = new Set<string>()
-    items.forEach(item => {
+    optimisticItems.forEach(item => {
       item.tags.forEach(t => tags.add(t))
       if (item.color) colors.add(item.color)
     })
     return { allTags: Array.from(tags), allColors: Array.from(colors) }
-  }, [items])
+  }, [optimisticItems])
 
   const isRadarrEnabled = !!(servarrConfig?.radarrUrl && servarrConfig?.radarrApiKey)
   const isSonarrEnabled = !!(servarrConfig?.sonarrUrl && servarrConfig?.sonarrApiKey)
@@ -98,7 +117,7 @@ export default function ListClientView({
   const isCalendarList = list.type === 'CALENDAR'
 
   const filteredItems = useMemo(() => {
-    let result = items
+    let result = optimisticItems
 
     if (activeCategory === 'MOVIE') result = result.filter(i => i.mediaType === 'MOVIE')
     else if (activeCategory === 'SHOW') result = result.filter(i => i.mediaType === 'SHOW')
@@ -123,7 +142,7 @@ export default function ListClientView({
     }
 
     return result
-  }, [items, activeCategory, searchQuery, selectedTags, selectedColors])
+  }, [optimisticItems, activeCategory, searchQuery, selectedTags, selectedColors])
 
   const sidebarItems = [
     { id: 'ALL', label: 'All Media', icon: LayoutGrid },
@@ -164,6 +183,23 @@ export default function ListClientView({
     )
   }
 
+  const handleStatusToggle = (item: Item) => {
+    const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
+    startTransition(async () => {
+      addOptimisticAction({ type: 'TOGGLE', id: item.id, status: nextStatus })
+      await updateItemStatus(item.id, nextStatus, list.id)
+    })
+  }
+
+  const handleItemDelete = (id: string) => {
+    if (confirm('Are you sure you want to delete this item?')) {
+      startTransition(async () => {
+        addOptimisticAction({ type: 'DELETE', id })
+        await deleteItem(id, list.id)
+      })
+    }
+  }
+
   if (isCalendarList) {
     return (
       <>
@@ -171,7 +207,7 @@ export default function ListClientView({
           <div>
             <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
             <p className="text-muted-foreground font-mono">
-              {items.length} items tracking
+              {optimisticItems.length} items tracking
               {!isOwner && accessLevel && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
             </p>
           </div>
@@ -198,6 +234,20 @@ export default function ListClientView({
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
           allExistingTags={allTags}
+          onStatusToggle={handleStatusToggle}
+          onItemDelete={handleItemDelete}
+        />
+        <ItemDetailsDialog
+          item={selectedItem}
+          listId={list.id}
+          isOpen={!!selectedItem}
+          onClose={() => setSelectedItem(null)}
+          canEdit={canEdit}
+          isOwner={isOwner}
+          tagConfigs={tagConfigsMap}
+          allExistingTags={allTags}
+          onStatusToggle={handleStatusToggle}
+          onItemDelete={handleItemDelete}
         />
       </>
     )
@@ -216,12 +266,14 @@ export default function ListClientView({
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
           allExistingTags={allTags}
+          onStatusToggle={handleStatusToggle}
+          onItemDelete={handleItemDelete}
         />
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-4xl font-black uppercase tracking-tighter">{list.title}</h1>
-            <p className="text-muted-foreground font-mono text-xs">
-              {filteredItems.length} of {items.length} notes pinned
+            <p className="text-muted-foreground font-mono text-xs font-bold uppercase tracking-widest mt-1">
+              {filteredItems.length} of {optimisticItems.length} notes pinned
               {accessLevel && accessLevel !== 'OWNER' && <span className="ml-2 opacity-50">• {accessLevel} access</span>}
             </p>
           </div>
@@ -299,6 +351,8 @@ export default function ListClientView({
                         isSonarrEnabled={isSonarrEnabled}
                         canEdit={canEdit}
                         isOwner={isOwner}
+                        onStatusToggle={() => handleStatusToggle(item)}
+                        onDelete={() => handleItemDelete(item.id)}
                       />
                     </div>
 
@@ -364,6 +418,8 @@ export default function ListClientView({
         isOwner={isOwner}
         tagConfigs={tagConfigsMap}
         allExistingTags={allTags}
+        onStatusToggle={handleStatusToggle}
+        onItemDelete={handleItemDelete}
       />
       {/* Sidebar */}
       <aside 
@@ -379,7 +435,7 @@ export default function ListClientView({
           )}>
             <h1 className="text-3xl font-black uppercase tracking-tighter mb-1 whitespace-nowrap">{list.title}</h1>
             <p className="text-xs text-muted-foreground font-mono uppercase font-bold tracking-widest whitespace-nowrap">
-              {filteredItems.length} of {items.length} items
+              {filteredItems.length} of {optimisticItems.length} items
             </p>
           </div>
           <button 
@@ -587,6 +643,8 @@ export default function ListClientView({
                           isSonarrEnabled={isSonarrEnabled}
                           canEdit={canEdit}
                           isOwner={isOwner}
+                          onStatusToggle={() => handleStatusToggle(item)}
+                          onDelete={() => handleItemDelete(item.id)}
                         />
                       </div>
                     </div>

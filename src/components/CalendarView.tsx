@@ -41,6 +41,8 @@ interface CalendarViewProps {
   isOwner?: boolean
   tagConfigs?: Record<string, string>
   allExistingTags?: string[]
+  onStatusToggle?: (item: Item) => void
+  onItemDelete?: (id: string) => void
 }
 
 type ViewMode = 'MONTH' | 'WEEK' | 'DAY'
@@ -54,7 +56,9 @@ export default function CalendarView({
   canEdit = true,
   isOwner = false,
   tagConfigs = {},
-  allExistingTags = []
+  allExistingTags = [],
+  onStatusToggle,
+  onItemDelete,
 }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('MONTH')
   const [hasManuallySwitched, setHasManuallySwitched] = useState(false)
@@ -111,19 +115,27 @@ export default function CalendarView({
   const toggleStatus = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!canEdit) return
-    const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
-    startTransition(async () => {
-      await updateItemStatus(item.id, nextStatus, listId)
-    })
+    if (onStatusToggle) {
+      onStatusToggle(item)
+    } else {
+      const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
+      startTransition(async () => {
+        await updateItemStatus(item.id, nextStatus, listId)
+      })
+    }
   }
 
   const handleDelete = (item: Item, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!canEdit) return
-    if (confirm('Delete this item?')) {
-      startTransition(async () => {
-        await deleteItem(item.id, listId)
-      })
+    if (onItemDelete) {
+      onItemDelete(item.id)
+    } else {
+      if (confirm('Delete this item?')) {
+        startTransition(async () => {
+          await deleteItem(item.id, listId)
+        })
+      }
     }
   }
 

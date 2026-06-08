@@ -38,6 +38,8 @@ interface ItemDetailsDialogProps {
   isOwner?: boolean
   tagConfigs?: Record<string, string>
   allExistingTags?: string[]
+  onStatusToggle?: (item: Item) => void
+  onItemDelete?: (id: string) => void
 }
 
 export default function ItemDetailsDialog({
@@ -51,6 +53,8 @@ export default function ItemDetailsDialog({
   isOwner = false,
   tagConfigs = {},
   allExistingTags = [],
+  onStatusToggle,
+  onItemDelete,
 }: ItemDetailsDialogProps) {
   const [isPending, startTransition] = useTransition()
   const [isEditing, setIsEditing] = useState(false)
@@ -94,11 +98,16 @@ export default function ItemDetailsDialog({
 
   const handleDelete = () => {
     if (!canEdit) return
-    if (confirm('Are you sure you want to delete this item?')) {
-      startTransition(async () => {
-        await deleteItem(item.id, listId)
-        onClose()
-      })
+    if (onItemDelete) {
+      onItemDelete(item.id)
+      onClose()
+    } else {
+      if (confirm('Are you sure you want to delete this item?')) {
+        startTransition(async () => {
+          await deleteItem(item.id, listId)
+          onClose()
+        })
+      }
     }
   }
 
@@ -118,10 +127,14 @@ export default function ItemDetailsDialog({
 
   const toggleStatus = () => {
     if (!canEdit) return
-    const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
-    startTransition(async () => {
-      await updateItemStatus(item.id, nextStatus, listId)
-    })
+    if (onStatusToggle) {
+      onStatusToggle(item)
+    } else {
+      const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
+      startTransition(async () => {
+        await updateItemStatus(item.id, nextStatus, listId)
+      })
+    }
   }
 
   return (
@@ -158,16 +171,18 @@ export default function ItemDetailsDialog({
               </div>
             </div>
             <div className="flex flex-col gap-2 items-end">
-              <ItemActions 
-                id={item.id} 
-                status={item.status} 
-                listId={listId} 
-                mediaType={item.mediaType}
-                isRadarrEnabled={isRadarrEnabled}
-                isSonarrEnabled={isSonarrEnabled}
-                canEdit={canEdit}
-                isOwner={isOwner}
-              />
+            <ItemActions 
+              id={item.id} 
+              status={item.status} 
+              listId={listId} 
+              mediaType={item.mediaType}
+              isRadarrEnabled={isRadarrEnabled}
+              isSonarrEnabled={isSonarrEnabled}
+              canEdit={canEdit}
+              isOwner={isOwner}
+              onStatusToggle={onStatusToggle ? () => onStatusToggle(item) : undefined}
+              onDelete={onItemDelete ? () => onItemDelete(item.id) : undefined}
+            />
               {canEdit && !isEditing && (
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setIsEditing(true)}>
                   <Edit2 className="h-3 w-3" />
