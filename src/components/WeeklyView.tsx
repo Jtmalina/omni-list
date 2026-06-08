@@ -1,12 +1,14 @@
 'use client'
 
 import { useMemo, useEffect, useRef } from 'react'
-import { format, isSameDay, isToday, addDays, subDays } from 'date-fns'
+import { format, isSameDay, isToday, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Calendar as CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Item, ItemStatus, MediaMetadata } from '@prisma/client'
 import { TagBadge } from './TagBadge'
+import { Badge } from '@/components/ui/badge'
+import { useRef } from 'react'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -38,148 +40,139 @@ export default function WeeklyView({
 }: WeeklyViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const weekDays = useMemo(() => {
-    // Show a 15-day window centered on the current date
-    return Array.from({ length: 15 }, (_, i) => addDays(subDays(currentDate, 7), i))
+  // Generate a window of 3 weeks (Previous, Current, Next) 
+  // each starting from Monday
+  const weeks = useMemo(() => {
+    const currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+    return [
+      subWeeks(currentWeekStart, 1),
+      currentWeekStart,
+      addWeeks(currentWeekStart, 1)
+    ]
   }, [currentDate])
 
-  // Scroll to current day
+  // Scroll to current week on load
   useEffect(() => {
     if (containerRef.current) {
-      const currentDayElement = containerRef.current.querySelector('[data-current="true"]')
-      if (currentDayElement) {
-        currentDayElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+      const currentWeekElement = containerRef.current.querySelector('[data-current="true"]')
+      if (currentWeekElement) {
+        currentWeekElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
       }
     }
-  }, [currentDate])
+  }, [weeks])
 
   const scheduledItems = items.filter((item) => item.dueDate)
 
   return (
     <div 
       ref={containerRef}
-      className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory scrollbar-hide"
+      className="flex overflow-x-auto pb-4 gap-8 snap-x snap-mandatory scrollbar-hide h-[700px]"
     >
-      {weekDays.map((day) => {
-        const isSelected = isSameDay(day, currentDate)
-        const dayItems = scheduledItems.filter((item) =>
-          item.dueDate && isSameDay(new Date(item.dueDate), day)
-        )
+      {weeks.map((weekStart) => {
+        const isCurrentWeek = isSameDay(weekStart, startOfWeek(currentDate, { weekStartsOn: 1 }))
+        const daysInWeek = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
         return (
           <div
-            key={day.toString()}
-            data-current={isSelected}
-            className={cn(
-              "flex-shrink-0 w-[85vw] sm:w-[300px] snap-center bg-background border rounded-2xl flex flex-col h-[500px] shadow-sm transition-all",
-              isToday(day) ? "ring-2 ring-primary ring-offset-2 border-primary" : isSelected ? "border-primary/40 bg-primary/[0.02]" : "border-muted"
-            )}
+            key={weekStart.toString()}
+            data-current={isCurrentWeek}
+            className="flex-shrink-0 w-[90vw] sm:w-[450px] snap-center flex flex-col gap-4"
           >
-            {/* Day Header */}
-            <div className={cn(
-              "p-4 border-b flex justify-between items-center",
-              isToday(day) ? "bg-primary/5" : "bg-muted/30"
-            )}>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-60">
-                  {format(day, 'EEEE')}
-                </p>
-                <h3 className="text-2xl font-black tabular-nums">
-                  {format(day, 'MMM d')}
-                </h3>
-              </div>
-              {canEdit && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-full hover:bg-background"
-                  onClick={() => onAddClick(day)}
-                >
-                  <Plus className="h-5 w-5" />
-                </Button>
-              )}
+            {/* Week Label */}
+            <div className="flex items-center gap-2 px-2">
+              <CalendarIcon className="h-4 w-4 text-primary opacity-50" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                {format(weekStart, 'MMM d')} — {format(daysInWeek[6], 'MMM d, yyyy')}
+              </span>
             </div>
 
-            {/* Day Items */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {dayItems.length > 0 ? (
-                dayItems.map((item) => {
-                  const itemColor = item.color || (item.tags[0] ? tagConfigs[item.tags[0]] : null)
-                  const style = itemColor ? {
-                    backgroundColor: `${itemColor}15`,
-                    borderLeftColor: itemColor,
-                  } : {}
+            {/* Vertical Days List */}
+            <div className="flex-1 bg-muted/20 border-2 rounded-[2.5rem] overflow-hidden flex flex-col divide-y-2 divide-muted/50 shadow-inner">
+              {daysInWeek.map((day) => {
+                const dayItems = scheduledItems.filter((item) =>
+                  item.dueDate && isSameDay(new Date(item.dueDate), day)
+                )
 
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => onItemClick(item)}
-                      className={cn(
-                        "group p-3 rounded-xl border border-l-4 flex flex-col gap-2 cursor-pointer transition-all active:scale-[0.98]",
-                        !itemColor && "bg-muted/50 border-muted-foreground/20"
-                      )}
-                      style={style}
-                    >
-                      <div className="flex justify-between items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h4 className={cn(
-                            "font-bold text-sm leading-tight truncate",
-                            item.status === 'COMPLETED' && "line-through opacity-40"
-                          )}
-                          style={{ color: itemColor || 'inherit' }}>
-                            {item.title}
-                          </h4>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {item.tags.slice(0, 2).map(tag => (
-                              <TagBadge key={tag} name={tag} color={tagConfigs[tag]} className="text-[8px] px-1.5 py-0" />
-                            ))}
-                          </div>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onStatusToggle(item, e)
-                          }}
-                          disabled={isPending}
-                          className="flex-shrink-0"
-                        >
-                          <div className={cn(
-                            "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                            item.status === 'COMPLETED' 
-                              ? "bg-primary border-primary text-primary-foreground" 
-                              : "border-muted-foreground/30"
-                          )}>
-                            {item.status === 'COMPLETED' && <div className="w-2 h-2 bg-current rounded-full" />}
-                          </div>
-                        </button>
+                return (
+                  <div 
+                    key={day.toString()} 
+                    className={cn(
+                      "flex flex-col p-4 transition-colors",
+                      isToday(day) ? "bg-background shadow-md z-10" : "hover:bg-background/40"
+                    )}
+                  >
+                    {/* Day Header */}
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-baseline gap-2">
+                        <span className={cn(
+                          "text-lg font-black tabular-nums",
+                          isToday(day) ? "text-primary" : "text-foreground"
+                        )}>
+                          {format(day, 'dd')}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                          {format(day, 'EEEE')}
+                        </span>
+                        {isToday(day) && (
+                          <Badge className="ml-2 h-4 px-1.5 text-[8px] font-black uppercase bg-primary text-primary-foreground">Today</Badge>
+                        )}
                       </div>
-                      
-                      {item.notes && (
-                        <p className="text-[10px] text-muted-foreground line-clamp-2 italic">
-                          {item.notes}
-                        </p>
-                      )}
-
                       {canEdit && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDeleteClick(item, e)
-                          }}
-                          disabled={isPending}
-                          className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-destructive p-1"
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 rounded-full hover:bg-muted"
+                          onClick={() => onAddClick(day)}
                         >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
+                          <Plus className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
-                  )
-                })
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center opacity-20 italic space-y-2">
-                  <p className="text-sm font-mono uppercase">Quiet Day</p>
-                </div>
-              )}
+
+                    {/* Day Content */}
+                    <div className="space-y-1.5 pl-7 border-l-2 border-muted-foreground/10 ml-2">
+                      {dayItems.length > 0 ? (
+                        dayItems.map((item) => {
+                          const itemColor = item.color || (item.tags[0] ? tagConfigs[item.tags[0]] : null)
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => onItemClick(item)}
+                              className="group flex items-center justify-between gap-3 p-1.5 -ml-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-all"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div 
+                                  className="h-2 w-2 rounded-full shrink-0" 
+                                  style={{ backgroundColor: itemColor || 'var(--primary)' }}
+                                />
+                                <span className={cn(
+                                  "text-sm font-bold truncate tracking-tight",
+                                  item.status === 'COMPLETED' && "line-through opacity-30 font-medium"
+                                )}>
+                                  {item.title}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pr-1" onClick={e => e.stopPropagation()}>
+                                <button
+                                  onClick={(e) => onStatusToggle(item, e)}
+                                  className={cn(
+                                    "h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
+                                    item.status === 'COMPLETED' ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"
+                                  )}
+                                >
+                                  {item.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-current rounded-sm" />}
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/40 font-mono italic py-1">Nothing scheduled</p>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )
