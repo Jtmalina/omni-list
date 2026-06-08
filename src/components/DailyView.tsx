@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useEffect, useRef } from 'react'
-import { format, isSameDay, startOfDay, addHours, addDays, subDays } from 'date-fns'
+import { format, isSameDay, startOfDay, addHours, addDays, subDays, isToday } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Plus, X, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
