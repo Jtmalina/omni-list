@@ -380,7 +380,9 @@ export default function ItemDetailsDialog({
                               </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-bold truncate">{credit.name}</p>
-                                <p className="text-[10px] text-muted-foreground truncate uppercase">{credit.role}</p>
+                                <p className="text-[10px] text-muted-foreground truncate uppercase">
+                                  {credit.type === 'PERSON' ? (credit as MediaCredit).role : 'Studio'}
+                                </p>
                               </div>
                             </div>
                             <Button
