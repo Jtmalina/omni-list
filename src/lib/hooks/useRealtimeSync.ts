@@ -8,6 +8,8 @@ export function useRealtimeSync(listId?: string) {
   const router = useRouter()
 
   useEffect(() => {
+    if (!supabase) return
+
     // 1. Listen for Item changes in the specific list
     const itemChannel = supabase
       .channel(`list-items-${listId || 'all'}`)

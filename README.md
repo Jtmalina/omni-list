@@ -52,6 +52,11 @@ OmniList is a professional, visual task and media management application built f
    # Database (Supabase URI)
    DATABASE_URL="postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"
 
+   # Supabase Client (For Realtime Sync)
+   # Find in: Supabase Dashboard -> Project Settings -> API
+   NEXT_PUBLIC_SUPABASE_URL="https://your-project-id.supabase.co"
+   NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-public-key"
+
    # Auth.js Secrets
    AUTH_SECRET="your-auth-secret" # Generate with: npx auth secret
 
