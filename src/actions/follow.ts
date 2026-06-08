@@ -1,5 +1,3 @@
-'use client' // Note: This will be moved to 'use server' if creating a new file, 
-// but wait, I should make sure I use 'use server' for actions.
 'use server'
 
 import prisma from '@/lib/prisma'
