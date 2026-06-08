@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { TagBadge } from './TagBadge'
 import ItemDetailsDialog from './ItemDetailsDialog'
 import { updateItemStatus, deleteItem } from '@/actions/item'
+import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -63,6 +64,9 @@ export default function ListClientView({
   isOwner = false,
   accessLevel = null
 }: ListClientViewProps) {
+  // Enable live sync for this list
+  useRealtimeSync(list.id)
+
   const [isPending, startTransition] = useTransition()
   
   // Optimistic State
