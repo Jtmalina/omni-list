@@ -40,6 +40,29 @@ export interface GameCreator {
   type: 'STUDIO'
 }
 
+export interface ExtendedMediaDetails extends MediaSearchResult {
+  backdropPath: string | null
+  genres: { id: number; name: string }[]
+  tagline: string | null
+  runtime?: number
+  numberOfEpisodes?: number
+  numberOfSeasons?: number
+  status: string
+  videos: { key: string; name: string; type: string }[]
+  credits: MediaCredit[]
+  recommendations: MediaSearchResult[]
+  similar: MediaSearchResult[]
+}
+
+export interface ExtendedGameDetails extends GameSearchResult {
+  description: string
+  website: string | null
+  developers: GameCreator[]
+  publishers: { name: string }[]
+  screenshots: string[]
+  similarGames: GameSearchResult[]
+}
+
 function getTMDBHeaders() {
   const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '')
   if (!token || token === 'your-tmdb-api-key-here') {
@@ -122,6 +145,112 @@ export async function searchGames(query: string): Promise<GameSearchResult[]> {
   }
 }
 
+export async function getExtendedMediaDetails(id: string, type: 'movie' | 'tv'): Promise<ExtendedMediaDetails | null> {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${type}/${id}?append_to_response=videos,credits,recommendations,similar`,
+      {
+        headers: getTMDBHeaders(),
+        cache: 'no-store',
+      }
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+
+    const mapResult = (r: any) => ({
+      id: r.id.toString(),
+      title: r.title || r.name,
+      overview: r.overview,
+      posterPath: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+      releaseDate: r.release_date || r.first_air_date,
+      mediaType: type,
+      voteAverage: r.vote_average,
+    })
+
+    return {
+      ...mapResult(data),
+      backdropPath: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : null,
+      genres: data.genres || [],
+      tagline: data.tagline,
+      runtime: data.runtime,
+      numberOfEpisodes: data.number_of_episodes,
+      numberOfSeasons: data.number_of_seasons,
+      status: data.status,
+      videos: (data.videos?.results || [])
+        .filter((v: any) => v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'))
+        .map((v: any) => ({ key: v.key, name: v.name, type: v.type })),
+      credits: [
+        ...(data.credits?.crew || [])
+          .filter((c: any) => c.job === 'Director')
+          .map((c: any) => ({
+            id: c.id.toString(),
+            name: c.name,
+            role: 'Director',
+            profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+            type: 'PERSON' as const
+          })),
+        ...(data.credits?.cast || [])
+          .slice(0, 10)
+          .map((c: any) => ({
+            id: c.id.toString(),
+            name: c.name,
+            role: c.character,
+            profilePath: c.profile_path ? `https://image.tmdb.org/t/p/w185${c.profile_path}` : null,
+            type: 'PERSON' as const
+          }))
+      ],
+      recommendations: (data.recommendations?.results || []).slice(0, 8).map(mapResult),
+      similar: (data.similar?.results || []).slice(0, 8).map(mapResult),
+    }
+  } catch (error) {
+    console.error('TMDB Extended Fetch Failure:', error)
+    return null
+  }
+}
+
+export async function getExtendedGameDetails(id: string): Promise<ExtendedGameDetails | null> {
+  try {
+    const key = getRAWGKey()
+    const [gameData, screenData, similarData] = await Promise.all([
+      fetch(`${RAWG_BASE_URL}/games/${id}?key=${key}`).then(r => r.json()),
+      fetch(`${RAWG_BASE_URL}/games/${id}/screenshots?key=${key}`).then(r => r.json()),
+      fetch(`${RAWG_BASE_URL}/games/${id}/game-series?key=${key}`).then(r => r.json()),
+    ])
+
+    const mapGame = (r: any) => ({
+      id: r.id.toString(),
+      title: r.name,
+      overview: (r.genres as any[] ?? []).map((g: any) => g.name).join(', '),
+      posterPath: r.background_image ?? null,
+      releaseDate: r.released ?? '',
+      mediaType: 'game' as const,
+      rating: r.rating ?? 0,
+      metacritic: r.metacritic ?? null,
+      esrb: r.esrb_rating?.name ?? null,
+      platforms: (r.platforms as any[] ?? []).map((p: any) => p.platform.name as string),
+      stores: (r.stores as any[] ?? []).map((s: any) => s.store.name as string),
+    })
+
+    return {
+      ...mapGame(gameData),
+      description: gameData.description_raw || gameData.description,
+      website: gameData.website,
+      developers: (gameData.developers || []).map((d: any) => ({
+        id: d.id.toString(),
+        name: d.name,
+        profilePath: d.image_background ?? null,
+        type: 'STUDIO' as const
+      })),
+      publishers: gameData.publishers || [],
+      screenshots: (screenData.results || []).map((s: any) => s.image),
+      similarGames: (similarData.results || []).slice(0, 8).map(mapGame),
+    }
+  } catch (error) {
+    console.error('RAWG Extended Fetch Failure:', error)
+    return null
+  }
+}
+
 export async function getMediaCredits(id: string, type: 'movie' | 'tv'): Promise<MediaCredit[]> {
   try {
     const response = await fetch(`${TMDB_BASE_URL}/${type}/${id}/credits`, {
@@ -161,13 +290,6 @@ export async function getMediaCredits(id: string, type: 'movie' | 'tv'): Promise
 export async function getGameCreators(gameId: string): Promise<GameCreator[]> {
   try {
     const key = getRAWGKey()
-    const response = await fetch(`${RAWG_BASE_URL}/games/${gameId}/development-team?key=${key}`, {
-      headers: { accept: 'application/json' },
-      cache: 'no-store',
-    })
-    if (!response.ok) return []
-    const data = await response.json()
-    
     // Developer studios are also available directly on the game object
     const gameResp = await fetch(`${RAWG_BASE_URL}/games/${gameId}?key=${key}`)
     if (!gameResp.ok) return []

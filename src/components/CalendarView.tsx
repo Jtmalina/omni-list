@@ -43,6 +43,7 @@ interface CalendarViewProps {
   allExistingTags?: string[]
   onStatusToggle?: (item: Item) => void
   onItemDelete?: (id: string) => void
+  onItemClick?: (item: ItemWithMedia) => void
 }
 
 type ViewMode = 'MONTH' | 'WEEK' | 'DAY'
@@ -59,6 +60,7 @@ export default function CalendarView({
   allExistingTags = [],
   onStatusToggle,
   onItemDelete,
+  onItemClick,
 }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('MONTH')
   const [hasManuallySwitched, setHasManuallySwitched] = useState(false)
@@ -140,7 +142,11 @@ export default function CalendarView({
   }
 
   const handleItemClick = (item: ItemWithMedia) => {
-    setSelectedItem(item)
+    if (onItemClick) {
+      onItemClick(item)
+    } else {
+      setSelectedItem(item)
+    }
   }
 
   return (
@@ -156,6 +162,8 @@ export default function CalendarView({
         isOwner={isOwner}
         tagConfigs={tagConfigs}
         allExistingTags={allExistingTags}
+        onStatusToggle={onStatusToggle}
+        onItemDelete={onItemDelete}
       />
       
       {/* Calendar Controls */}

@@ -17,8 +17,9 @@ import { Badge } from '@/components/ui/badge'
 import { updateItemStatus, deleteItem, updateItem } from '@/actions/item'
 import { toggleFollowAction, getFollowsAction } from '@/actions/follow'
 import { getMediaCredits, getGameCreators, MediaCredit, GameCreator } from '@/lib/media-api'
-import { Star, Film, Tv, Gamepad2, Trash2, Save, Loader2, Edit2, Tag, X, UserPlus, UserCheck, Building2 } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, Trash2, Save, Loader2, Edit2, Tag, X, UserPlus, UserCheck, Building2, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import ItemActions from './ItemActions'
 import { TagBadge } from './TagBadge'
@@ -190,7 +191,7 @@ export default function ItemDetailsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto scrollbar-hide">
         <DialogHeader>
           <div className="flex justify-between items-start pr-8">
             <div className="space-y-1 flex-1">
@@ -345,9 +346,18 @@ export default function ItemDetailsDialog({
                           {item.media.rating.toFixed(1)}
                         </div>
                       )}
-                      <p className="text-sm text-muted-foreground line-clamp-6 italic leading-relaxed">
+                      <p className="text-sm text-muted-foreground line-clamp-4 italic leading-relaxed">
                         {item.notes || "No description provided."}
                       </p>
+                      
+                      <div className="pt-2">
+                        <Button asChild variant="outline" size="sm" className="w-full rounded-xl font-bold uppercase text-[10px] gap-2 border-primary/20 hover:bg-primary/5 shadow-sm">
+                          <Link href={`/media/${item.mediaType === 'MOVIE' ? 'movie' : item.mediaType === 'SHOW' ? 'tv' : 'game'}/${item.media.externalId}`}>
+                            View Full Details
+                            <ChevronRight className="h-3 w-3" />
+                          </Link>
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -380,7 +390,7 @@ export default function ItemDetailsDialog({
                               </div>
                               <div className="min-w-0">
                                 <p className="text-xs font-bold truncate">{credit.name}</p>
-                                <p className="text-[10px] text-muted-foreground truncate uppercase">
+                                <p className="text-[10px] text-muted-foreground truncate uppercase font-bold italic">
                                   {credit.type === 'PERSON' ? (credit as MediaCredit).role : 'Studio'}
                                 </p>
                               </div>

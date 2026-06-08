@@ -15,6 +15,7 @@ import { TagBadge } from './TagBadge'
 import ItemDetailsDialog from './ItemDetailsDialog'
 import { updateItemStatus, deleteItem } from '@/actions/item'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
+import { useRouter } from 'next/navigation'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -64,6 +65,7 @@ export default function ListClientView({
   isOwner = false,
   accessLevel = null
 }: ListClientViewProps) {
+  const router = useRouter()
   // Enable live sync for this list
   useRealtimeSync(list.id)
 
@@ -204,6 +206,15 @@ export default function ListClientView({
     }
   }
 
+  const handleItemClick = (item: ItemWithMedia) => {
+    if (list.type === 'MEDIA' && item.media?.externalId) {
+      const type = item.mediaType === 'MOVIE' ? 'movie' : item.mediaType === 'SHOW' ? 'tv' : 'game'
+      router.push(`/media/${type}/${item.media.externalId}`)
+    } else {
+      setSelectedItem(item)
+    }
+  }
+
   if (isCalendarList) {
     return (
       <>
@@ -240,6 +251,7 @@ export default function ListClientView({
           allExistingTags={allTags}
           onStatusToggle={handleStatusToggle}
           onItemDelete={handleItemDelete}
+          onItemClick={handleItemClick}
         />
         <ItemDetailsDialog
           item={selectedItem}
@@ -327,7 +339,7 @@ export default function ListClientView({
             return (
               <div 
                 key={item.id} 
-                onClick={() => setSelectedItem(item)}
+                onClick={() => handleItemClick(item)}
                 className={cn(
                   "transition-transform hover:rotate-0 hover:scale-105 duration-200 relative pt-4 cursor-pointer",
                   rotationClass
@@ -576,10 +588,10 @@ export default function ListClientView({
 
             return (
               <Card key={item.id} 
-                onClick={() => setSelectedItem(item)}
+                onClick={() => handleItemClick(item)}
                 className={cn(
                 "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20 cursor-pointer",
-                item.status === 'COMPLETED' ? 'opacity-60 grayscale-[0.3]' : ''
+                item.status === 'COMPLETED' ? "opacity-60 grayscale-[0.3]" : ""
               )}>
                 <CardContent className="p-0 flex flex-col sm:flex-row h-full">
                   <div className="relative w-full sm:w-48 h-72 sm:h-auto flex-shrink-0 bg-muted">
