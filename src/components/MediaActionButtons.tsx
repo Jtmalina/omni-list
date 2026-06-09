@@ -63,28 +63,30 @@ export default function MediaActionButtons({
     overview,
     posterPath,
     releaseDate,
-    mediaType: type as any,
+    mediaType: type === 'tv' ? 'tv' : type as any,
     voteAverage: rating,
     rating: rating
   }
+
+  const labelType = type === 'movie' ? 'Movie' : type === 'tv' ? 'TV Show' : 'Game'
 
   return (
     <div className="flex flex-wrap gap-3">
       {existingItem ? (
         <Button 
           onClick={() => setIsEditOpen(true)}
-          className="rounded-2xl font-black uppercase text-xs gap-2 px-6 h-12 shadow-lg shadow-primary/20"
+          className="rounded-2xl font-black uppercase text-xs gap-2 px-8 h-12 shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Edit2 className="h-4 w-4" />
-          Edit in {existingItem.list.title}
+          Edit {labelType} in {existingItem.list.title}
         </Button>
       ) : (
         <Button 
           onClick={() => setIsAddOpen(true)}
-          className="rounded-2xl font-black uppercase text-xs gap-2 px-6 h-12 shadow-lg shadow-primary/20"
+          className="rounded-2xl font-black uppercase text-xs gap-2 px-8 h-12 shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Add to My List
+          Add {labelType} to My List
         </Button>
       )}
 
@@ -104,7 +106,6 @@ export default function MediaActionButtons({
         }}
         preselectedMedia={type !== 'game' ? mediaData : undefined}
         preselectedGame={type === 'game' ? mediaData as any : undefined}
-        // We'll need to update AddItemDialog to support list selection if no listId provided
       />
 
       {existingItem && (
@@ -116,7 +117,7 @@ export default function MediaActionButtons({
             setIsEditOpen(false)
             loadData() // Refresh status
           }}
-          isOwner={true} // Assuming the one who finds it owns it for this check
+          isOwner={true}
         />
       )}
     </div>
@@ -126,7 +127,7 @@ export default function MediaActionButtons({
 function SkeletonButtons() {
   return (
     <div className="flex gap-3">
-      <div className="h-12 w-40 bg-muted animate-pulse rounded-2xl" />
+      <div className="h-12 w-48 bg-muted animate-pulse rounded-2xl" />
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { downloadMediaAction, removeMediaFromServerAction } from '@/actions/serv
 import { ItemStatus, MediaType } from '@prisma/client'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw, HardDrive } from 'lucide-react'
+import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw, HardDrive, Edit2 } from 'lucide-react'
 import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useMediaStatus } from '@/lib/hooks/useMediaStatus'
@@ -22,6 +22,7 @@ export default function ItemActions({
   isOwner = false,
   onStatusToggle,
   onDelete,
+  onEdit,
 }: {
   id: string
   status: ItemStatus
@@ -33,6 +34,7 @@ export default function ItemActions({
   isOwner?: boolean
   onStatusToggle?: () => void
   onDelete?: () => void
+  onEdit?: () => void
 }) {
   const [isPending, startTransition] = useTransition()
   
@@ -182,6 +184,20 @@ export default function ItemActions({
           onCheckedChange={toggleStatus}
           disabled={isPending || !canEdit}
         />
+        {canEdit && onEdit && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit()
+            }}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            title="Edit Item"
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        )}
         {canEdit && (
           <Button
             variant="ghost"
