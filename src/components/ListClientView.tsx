@@ -681,11 +681,20 @@ export default function ListClientView({
                       </div>
                     )}
 
-                    {/* Actions menu — top right on hover, below streaming logos */}
-                    <div
-                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
+                  </div>
+
+                  {/* Title + meta below poster */}
+                  <div className="p-2 space-y-1">
+                    <p
+                      className={cn(
+                        'text-xs font-bold leading-tight line-clamp-2',
+                        item.status === 'COMPLETED' ? 'line-through opacity-60' : ''
+                      )}
+                      style={{ color: item.color || undefined }}
                     >
+                      {item.title}
+                    </p>
+                    <div onClick={(e) => e.stopPropagation()}>
                       <ItemActions
                         id={item.id}
                         status={item.status}
@@ -700,19 +709,6 @@ export default function ListClientView({
                         onEdit={() => setSelectedItem(item)}
                       />
                     </div>
-                  </div>
-
-                  {/* Title + meta below poster */}
-                  <div className="p-2 space-y-1">
-                    <p
-                      className={cn(
-                        'text-xs font-bold leading-tight line-clamp-2',
-                        item.status === 'COMPLETED' ? 'line-through opacity-60' : ''
-                      )}
-                      style={{ color: item.color || undefined }}
-                    >
-                      {item.title}
-                    </p>
                     <div className="flex items-center gap-1 flex-wrap">
                       <Badge variant="outline" className="text-[9px] px-1 py-0 uppercase border-muted-foreground/20">
                         {item.mediaType || 'TASK'}
