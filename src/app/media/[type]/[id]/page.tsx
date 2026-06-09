@@ -144,7 +144,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                   </div>
                 ))}
               </div>
-            </section>Section
+            </section>
           )}
 
           {recommendations?.length > 0 && (
