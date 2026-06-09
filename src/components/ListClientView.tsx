@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X, LayoutList } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X, LayoutList, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
@@ -666,9 +666,25 @@ export default function ListClientView({
                       </div>
                     )}
 
-                    {/* Streaming logos — top right */}
+                    {/* Circular done checkbox — top right */}
+                    {canEdit && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStatusToggle(item) }}
+                        title={item.status === 'COMPLETED' ? 'Mark as not done' : 'Mark as done'}
+                        className={cn(
+                          'absolute top-2 right-2 z-10 h-7 w-7 rounded-full border-2 flex items-center justify-center shadow-md transition-all',
+                          item.status === 'COMPLETED'
+                            ? 'bg-green-500 border-green-400 text-white'
+                            : 'bg-white/80 border-white/60 text-transparent hover:text-green-500 hover:border-green-400'
+                        )}
+                      >
+                        <Check className="h-4 w-4" strokeWidth={3} />
+                      </button>
+                    )}
+
+                    {/* Streaming logos — bottom left */}
                     {providers.length > 0 && (
-                      <div className="absolute top-2 right-2 flex flex-col gap-1">
+                      <div className="absolute bottom-2 left-2 flex flex-col gap-1">
                         {providers.map((provider: any) => (
                           <div
                             key={provider.provider_id}
@@ -709,6 +725,7 @@ export default function ListClientView({
                         isSonarrEnabled={isSonarrEnabled}
                         canEdit={canEdit}
                         isOwner={isOwner}
+                        hideCheckbox
                         onStatusToggle={() => handleStatusToggle(item)}
                         onDelete={() => handleItemDelete(item.id)}
                         onEdit={() => setSelectedItem(item)}

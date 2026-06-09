@@ -20,6 +20,7 @@ export default function ItemActions({
   isSonarrEnabled = false,
   canEdit = true,
   isOwner = false,
+  hideCheckbox = false,
   onStatusToggle,
   onDelete,
   onEdit,
@@ -32,6 +33,8 @@ export default function ItemActions({
   isSonarrEnabled?: boolean
   canEdit?: boolean
   isOwner?: boolean
+  /** When true, omits the checkbox (caller renders it elsewhere, e.g. poster overlay) */
+  hideCheckbox?: boolean
   onStatusToggle?: () => void
   onDelete?: () => void
   onEdit?: () => void
@@ -178,13 +181,15 @@ export default function ItemActions({
       )}
       
       <div className="flex items-center gap-1 ml-1 sm:ml-0">
-        <div onClick={(e) => e.stopPropagation()}>
-          <Checkbox
-            checked={status === ItemStatus.COMPLETED}
-            onCheckedChange={() => toggleStatus()}
-            disabled={isPending || !canEdit}
-          />
-        </div>
+        {!hideCheckbox && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={status === ItemStatus.COMPLETED}
+              onCheckedChange={() => toggleStatus()}
+              disabled={isPending || !canEdit}
+            />
+          </div>
+        )}
         {canEdit && onEdit && (
           <Button
             variant="ghost"
