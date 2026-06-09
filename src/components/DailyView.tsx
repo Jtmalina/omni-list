@@ -30,6 +30,7 @@ interface DailyViewProps {
 
 export default function DailyView({
   items,
+  listId,
   currentDate,
   onAddClick,
   onItemClick,
