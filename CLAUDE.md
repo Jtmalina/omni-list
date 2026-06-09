@@ -2,6 +2,27 @@
 
 # OmniList — CLAUDE.md
 
+## Default Change Process
+
+**Every code change — no exceptions — must follow this sequence before being considered done:**
+
+1. **Tests first** — add or update test cases in the relevant `*.test.ts` file covering the new behaviour or bug fix (even a minimal happy-path test). If the area has no test file yet, create one.
+2. **Run tests and fix until green** — `npm test` must exit with all tests passing. Fix any failures before moving on.
+3. **Build check** — `npm run build` must complete without errors. Fix any TypeScript or build errors.
+4. **Commit** — stage only the relevant files (never `git add -A`). Write a conventional-commit message (`feat:`, `fix:`, `refactor:`, etc.) with a brief body explaining *why*. Include the co-author trailer.
+5. **Push to main** — `git push origin main` triggers Vercel auto-deploy.
+
+```bash
+# Quick checklist
+npm test          # all green
+npm run build     # no errors
+git add <files>
+git commit -m "type: description"
+git push origin main
+```
+
+> If tests are genuinely impossible to add for a change (e.g. pure UI styling), note the reason in the commit message body.
+
 A catch-all personal tracker: task lists, media watchlists (movies, TV, games), and calendar views — all shareable with friends. Integrates with home media servers (Radarr/Sonarr) so users can queue downloads directly from the app.
 
 ---
