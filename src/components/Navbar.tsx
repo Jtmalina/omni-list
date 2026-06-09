@@ -11,11 +11,12 @@ import AutomationSettingsDialog from './AutomationSettingsDialog'
 
 export default function Navbar() {
   const { data: session } = useSession()
+  const homeHref = session?.user ? '/dashboard' : '/'
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-8 flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-bold text-xl">
+        <Link href={homeHref} className="flex items-center gap-2 font-bold text-xl">
           <LayoutList className="h-6 w-6 text-primary" />
           <span>OmniList</span>
         </Link>
@@ -32,7 +33,7 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => signOut()}
+                onClick={() => signOut({ callbackUrl: '/' })}
               >
                 <LogOut className="h-5 w-5" />
               </Button>

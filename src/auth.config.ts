@@ -21,10 +21,12 @@ export default {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const isOnDashboard = nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/list")
-      if (isOnDashboard) {
+      const isProtected =
+        nextUrl.pathname.startsWith("/dashboard") ||
+        nextUrl.pathname.startsWith("/list")
+      if (isProtected) {
         if (isLoggedIn) return true
-        return false 
+        return false
       }
       return true
     },
