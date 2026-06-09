@@ -211,6 +211,7 @@ model Follow {
   type          FollowType
   mediaType     MediaType
   name          String
+  knownFor      String?    // e.g. "Director · Star Wars, Indiana Jones" or "42 games"
   posterPath    String?
   lastCheckedAt DateTime?  @default(now())
   createdAt     DateTime   @default(now())

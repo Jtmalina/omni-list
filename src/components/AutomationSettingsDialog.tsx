@@ -166,11 +166,15 @@ export default function AutomationSettingsDialog() {
     const existingFollow = follows.find((f) => f.externalId === result.id)
 
     startTransition(async () => {
+      const knownFor = isPersonResult
+        ? result.knownFor
+        : `${result.gamesCount} games`
       const payload = {
         externalId: result.id,
         type: isPersonResult ? ('PERSON' as const) : ('STUDIO' as const),
         mediaType: isPersonResult ? MediaType.MOVIE : MediaType.GAME,
         name: result.name,
+        knownFor,
         posterPath: result.profilePath ?? null,
       }
       const followResult = await toggleFollowAction(payload)
@@ -185,6 +189,7 @@ export default function AutomationSettingsDialog() {
               type: payload.type,
               mediaType: payload.mediaType,
               name: result.name,
+              knownFor,
               posterPath: result.profilePath ?? null,
             },
           ])
@@ -344,8 +349,8 @@ export default function AutomationSettingsDialog() {
                             </div>
                             <div className="min-w-0">
                               <p className="text-xs font-bold truncate">{follow.name}</p>
-                              <p className="text-[10px] text-muted-foreground uppercase">
-                                {follow.type === 'STUDIO' ? 'Game Studio' : 'Person'}
+                              <p className="text-[10px] text-muted-foreground truncate italic">
+                                {follow.knownFor || (follow.type === 'STUDIO' ? 'Game Studio' : 'Person')}
                               </p>
                             </div>
                           </div>

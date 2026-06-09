@@ -261,6 +261,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                       name={c.name}
                       type="PERSON"
                       mediaType={mediaType}
+                      knownFor={c.role}
                       posterPath={c.profilePath}
                       initialIsFollowing={followedIds.has(String(c.id))}
                       showLabel
@@ -290,6 +291,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                             name={d.name}
                             type="STUDIO"
                             mediaType={MediaType.GAME}
+                            knownFor="Game Developer"
                             initialIsFollowing={followedIds.has(String(d.id))}
                             showLabel
                           />

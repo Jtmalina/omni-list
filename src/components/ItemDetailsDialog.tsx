@@ -121,11 +121,15 @@ export default function ItemDetailsDialog({
 
   const handleFollow = async (credit: MediaCredit | GameCreator) => {
     startTransition(async () => {
+      const knownFor = credit.type === 'PERSON'
+        ? (credit as MediaCredit).role
+        : 'Game Developer'
       const result = await toggleFollowAction({
         externalId: credit.id,
         type: credit.type === 'PERSON' ? FollowType.PERSON : FollowType.STUDIO,
         mediaType: item?.mediaType || MediaType.MOVIE,
         name: credit.name,
+        knownFor,
         posterPath: credit.profilePath
       })
       

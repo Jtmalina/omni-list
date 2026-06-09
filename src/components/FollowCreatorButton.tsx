@@ -13,6 +13,7 @@ interface FollowCreatorButtonProps {
   name: string
   type: 'PERSON' | 'STUDIO'
   mediaType: MediaType
+  knownFor?: string | null
   posterPath?: string | null
   initialIsFollowing: boolean
   /** When true, renders a pill-shaped button with "Follow / Following" text instead of just an icon */
@@ -24,6 +25,7 @@ export default function FollowCreatorButton({
   name,
   type,
   mediaType,
+  knownFor,
   posterPath,
   initialIsFollowing,
   showLabel = false,
@@ -38,6 +40,7 @@ export default function FollowCreatorButton({
         type: type === 'PERSON' ? FollowType.PERSON : FollowType.STUDIO,
         mediaType,
         name,
+        knownFor,
         posterPath,
       })
       if (result.success) {

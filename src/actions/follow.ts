@@ -22,6 +22,7 @@ export async function toggleFollowAction(data: {
   type: FollowType
   mediaType: MediaType
   name: string
+  knownFor?: string | null
   posterPath?: string | null
 }) {
   const session = await auth()
