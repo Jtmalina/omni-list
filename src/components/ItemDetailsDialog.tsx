@@ -254,7 +254,7 @@ export default function ItemDetailsDialog({
           {isEditing ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-notes" className="text-xs font-bold uppercase text-muted-foreground">Description / Notes</Label>
+                <Label htmlFor="edit-notes" className="text-xs font-bold uppercase text-muted-foreground">{isMedia ? 'My Notes' : 'Description'}</Label>
                 <Textarea 
                   id="edit-notes"
                   value={editNotes} 
@@ -424,15 +424,18 @@ export default function ItemDetailsDialog({
                 </div>
               )}
 
-              {/* My Notes — shown for all item types */}
               <div className="space-y-2">
                 <Label className="text-xs uppercase font-bold text-muted-foreground">
-                  My Notes
+                  {isMedia ? 'My Notes' : 'Description'}
                 </Label>
                 <div className="p-4 bg-muted/30 rounded-lg min-h-[60px] text-sm whitespace-pre-wrap border italic leading-relaxed text-muted-foreground">
                   {item.notes || (
                     <span className="opacity-40">
-                      {canEdit ? 'No personal notes yet — click Edit to add some.' : 'No notes added.'}
+                      {canEdit
+                        ? isMedia
+                          ? 'No personal notes yet — click Edit to add some.'
+                          : 'No description yet — click Edit to add one.'
+                        : 'None added.'}
                     </span>
                   )}
                 </div>

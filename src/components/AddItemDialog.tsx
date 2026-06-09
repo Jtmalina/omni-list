@@ -361,7 +361,7 @@ export default function AddItemDialog({
 
             {itemMode === 'task' ? (
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Label htmlFor="notes">Description (Optional)</Label>
                 <Input
                   id="notes"
                   value={notes}
