@@ -44,6 +44,7 @@ interface ItemDetailsDialogProps {
   allExistingTags?: string[]
   onStatusToggle?: (item: Item) => void
   onItemDelete?: (id: string) => void
+  startInEditMode?: boolean
 }
 
 export default function ItemDetailsDialog({
@@ -59,9 +60,10 @@ export default function ItemDetailsDialog({
   allExistingTags = [],
   onStatusToggle,
   onItemDelete,
+  startInEditMode = false,
 }: ItemDetailsDialogProps) {
   const [isPending, startTransition] = useTransition()
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(startInEditMode)
   const [credits, setCredits] = useState<(MediaCredit | GameCreator)[]>([])
   const [userFollows, setUserFollows] = useState<string[]>([]) // externalIds
   const [loadingCredits, setLoadingCredits] = useState(false)
@@ -84,6 +86,10 @@ export default function ItemDetailsDialog({
       setEditDueDate(item.dueDate ? format(new Date(item.dueDate), 'yyyy-MM-dd') : '')
       setEditDueTime(item.dueDate ? format(new Date(item.dueDate), 'HH:mm') : '')
       
+      if (startInEditMode) {
+        setIsEditing(true)
+      }
+
       // Fetch credits and follows
       if (item.type === 'MEDIA' && item.media?.externalId) {
         loadCredits(item)
@@ -93,7 +99,7 @@ export default function ItemDetailsDialog({
       setIsEditing(false)
       setCredits([])
     }
-  }, [item, isOpen])
+  }, [item, isOpen, startInEditMode])
 
   const loadCredits = async (targetItem: ItemWithMedia) => {
     setLoadingCredits(true)

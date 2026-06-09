@@ -20,10 +20,23 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
   const { type, id } = await params
 
   let data: any = null
-  if (type === 'movie' || type === 'tv') {
-    data = await getExtendedMediaDetails(id, type as 'movie' | 'tv')
-  } else if (type === 'game') {
-    data = await getExtendedGameDetails(id)
+  try {
+    if (type === 'movie' || type === 'tv') {
+      data = await getExtendedMediaDetails(id, type as 'movie' | 'tv')
+    } else if (type === 'game') {
+      data = await getExtendedGameDetails(id)
+    }
+  } catch (err) {
+    console.error("Failed to fetch media details on page:", err)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8">
+        <Sparkles className="h-12 w-12 text-primary opacity-20" />
+        <p className="text-xl font-black uppercase tracking-tighter">Could not load details</p>
+        <Button asChild variant="outline" className="rounded-2xl border-2 font-black uppercase text-xs px-8">
+          <Link href="/">Return to Home</Link>
+        </Button>
+      </div>
+    )
   }
 
   if (!data) notFound()
@@ -49,7 +62,13 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
           <div className="flex flex-col md:flex-row gap-8 items-end">
             {/* Poster */}
             <div className="relative h-[450px] w-[300px] shrink-0 rounded-2xl overflow-hidden shadow-2xl border-4 border-background/20 hidden md:block">
-              <Image src={data.posterPath} alt={data.title} fill className="object-cover" />
+              {data.posterPath ? (
+                <Image src={data.posterPath} alt={data.title} fill className="object-cover" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted">
+                  <Film className="h-12 w-12 opacity-10" />
+                </div>
+              )}
             </div>
 
             {/* Info */}
@@ -125,7 +144,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
               <Sparkles className="h-5 w-5 text-primary" />
               Overview
             </h2>
-            <p className="text-lg leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap">
+            <p className="text-lg leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap leading-relaxed">
               {data.overview || data.description}
             </p>
           </section>

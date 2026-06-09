@@ -38,16 +38,14 @@ export default function MediaActionButtons({
   }, [externalId])
 
   const loadData = async () => {
-    setLoading(true)
     try {
       const [item, userLists] = await Promise.all([
         findItemByExternalId(externalId),
-        getLists().catch(() => []) // Catch Unauthorized or other errors gracefully
+        getLists().catch(() => []) // Catch Unauthorized gracefully
       ])
       setExistingItem(item)
       setLists(userLists)
     } catch (error) {
-      // If unauthorized, we just show nothing or a sign-in prompt (here we'll just show no buttons)
       console.error("Failed to load media actions:", error)
     } finally {
       setLoading(false)
@@ -56,11 +54,6 @@ export default function MediaActionButtons({
 
   if (loading) {
     return <SkeletonButtons />
-  }
-
-  // If no lists returned and no existing item, user is likely logged out
-  if (lists.length === 0 && !existingItem) {
-    return null
   }
 
   const mediaData = {
@@ -75,6 +68,9 @@ export default function MediaActionButtons({
   }
 
   const labelType = type === 'movie' ? 'Movie' : type === 'tv' ? 'TV Show' : 'Game'
+
+  // If user is not logged in (no lists and no item), don't show any actions
+  if (lists.length === 0 && !existingItem) return null
 
   return (
     <div className="flex flex-wrap gap-3">
@@ -104,16 +100,18 @@ export default function MediaActionButtons({
       )}
 
       {/* Dialogs */}
-      <AddItemDialog
-        isManualOpen={isAddOpen}
-        showTrigger={false}
-        onClose={() => {
-          setIsAddOpen(false)
-          loadData() // Refresh to see if added
-        }}
-        preselectedMedia={type !== 'game' ? mediaData : undefined}
-        preselectedGame={type === 'game' ? mediaData as any : undefined}
-      />
+      {!existingItem && (
+        <AddItemDialog
+          isManualOpen={isAddOpen}
+          showTrigger={false}
+          onClose={() => {
+            setIsAddOpen(false)
+            loadData() 
+          }}
+          preselectedMedia={type !== 'game' ? mediaData : undefined}
+          preselectedGame={type === 'game' ? mediaData as any : undefined}
+        />
+      )}
 
       {existingItem && (
         <ItemDetailsDialog
@@ -122,9 +120,10 @@ export default function MediaActionButtons({
           isOpen={isEditOpen}
           onClose={() => {
             setIsEditOpen(false)
-            loadData() // Refresh status
+            loadData() 
           }}
           isOwner={true}
+          startInEditMode={true}
         />
       )}
     </div>

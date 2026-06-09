@@ -103,7 +103,7 @@ export default function ItemActions({
   const isDownloadableType = isMovie || isShow
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2">
+    <div className="flex items-center gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
       {isDownloadableType && canEdit && (
         <div className="flex items-center gap-1">
           {statusLoading && !mediaStatus ? (
@@ -188,10 +188,7 @@ export default function ItemActions({
           <Button
             variant="ghost"
             size="icon"
-            onClick={(e) => {
-              e.stopPropagation()
-              onEdit()
-            }}
+            onClick={onEdit}
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             title="Edit Item"
           >
