@@ -4,8 +4,18 @@ import prisma from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { FollowType, MediaType, ItemType } from '@prisma/client'
-import { discoverNewMedia, discoverNewGames } from '@/lib/media-api'
+import { discoverNewMedia, discoverNewGames, searchPersons, searchStudios } from '@/lib/media-api'
 import { createItem } from './item'
+
+export async function searchPersonsAction(query: string) {
+  if (!query.trim()) return []
+  return searchPersons(query)
+}
+
+export async function searchStudiosAction(query: string) {
+  if (!query.trim()) return []
+  return searchStudios(query)
+}
 
 export async function toggleFollowAction(data: {
   externalId: string

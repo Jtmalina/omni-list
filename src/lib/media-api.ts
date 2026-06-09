@@ -385,6 +385,67 @@ export async function getGameDetails(gameId: string): Promise<{ description: str
   }
 }
 
+export interface PersonSearchResult {
+  id: string
+  name: string
+  knownFor: string   // e.g. "Director · Inception, The Dark Knight"
+  profilePath: string | null
+}
+
+export interface StudioSearchResult {
+  id: string
+  name: string
+  gamesCount: number
+  profilePath: string | null
+}
+
+export async function searchPersons(query: string): Promise<PersonSearchResult[]> {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/search/person?query=${encodeURIComponent(query)}&include_adult=false&language=en-US&page=1`,
+      { headers: getTMDBHeaders(), cache: 'no-store' }
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.results || []).slice(0, 8).map((p: any) => {
+      const knownTitles = (p.known_for || [])
+        .slice(0, 2)
+        .map((k: any) => k.title || k.name)
+        .join(', ')
+      return {
+        id: p.id.toString(),
+        name: p.name,
+        knownFor: [p.known_for_department, knownTitles].filter(Boolean).join(' · '),
+        profilePath: p.profile_path ? `https://image.tmdb.org/t/p/w185${p.profile_path}` : null,
+      }
+    })
+  } catch (error) {
+    console.error('TMDB Person Search Failure:', error)
+    return []
+  }
+}
+
+export async function searchStudios(query: string): Promise<StudioSearchResult[]> {
+  try {
+    const key = getRAWGKey()
+    const response = await fetch(
+      `${RAWG_BASE_URL}/developers?key=${key}&search=${encodeURIComponent(query)}&page_size=8`,
+      { headers: { accept: 'application/json' }, cache: 'no-store' }
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.results || []).map((d: any) => ({
+      id: d.id.toString(),
+      name: d.name,
+      gamesCount: d.games_count ?? 0,
+      profilePath: d.image_background ?? null,
+    }))
+  } catch (error) {
+    console.error('RAWG Studio Search Failure:', error)
+    return []
+  }
+}
+
 export async function getStreamingProviders(mediaId: string, mediaType: 'movie' | 'tv') {
   try {
     const response = await fetch(

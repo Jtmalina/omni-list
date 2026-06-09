@@ -8,6 +8,10 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import MediaActionButtons from '@/components/MediaActionButtons'
+import FollowCreatorButton from '@/components/FollowCreatorButton'
+import { auth } from '@/lib/auth'
+import prisma from '@/lib/prisma'
+import { MediaType } from '@prisma/client'
 
 interface MediaPageProps {
   params: Promise<{
@@ -41,6 +45,22 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
 
   if (!data) notFound()
 
+  // Fetch current user's follows so we can show follow state server-side
+  let followedIds = new Set<string>()
+  try {
+    const session = await auth()
+    if (session?.user?.id) {
+      const follows = await prisma.follow.findMany({
+        where: { userId: session.user.id },
+        select: { externalId: true },
+      })
+      followedIds = new Set(follows.map(f => f.externalId))
+    }
+  } catch {
+    // Not logged in or auth unavailable — show buttons, they'll handle auth on click
+  }
+
+  const mediaType: MediaType = type === 'movie' ? 'MOVIE' : type === 'tv' ? 'SHOW' : 'GAME'
   const isGame = type === 'game'
   const trailer = !isGame ? data.videos.find((v: any) => v.type === 'Trailer') : null
   const recommendations = isGame ? data.similarGames : data.recommendations
@@ -232,10 +252,19 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-black truncate uppercase tracking-tight">{c.name}</p>
                       <p className="text-[10px] text-muted-foreground truncate uppercase font-bold italic">{c.role}</p>
                     </div>
+                    <FollowCreatorButton
+                      externalId={String(c.id)}
+                      name={c.name}
+                      type="PERSON"
+                      mediaType={mediaType}
+                      posterPath={c.profilePath}
+                      initialIsFollowing={followedIds.has(String(c.id))}
+                      showLabel
+                    />
                   </div>
                 ))}
               </div>
@@ -252,9 +281,19 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                 {data.developers?.length > 0 && (
                   <div>
                     <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-50">Developers</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
+                    <div className="space-y-2 mt-2">
                       {data.developers.map((d: any) => (
-                        <Badge key={d.id} variant="outline" className="font-bold border-primary/20">{d.name}</Badge>
+                        <div key={d.id} className="flex items-center justify-between p-2 bg-muted/20 rounded-xl border border-transparent hover:border-primary/10 transition-colors">
+                          <span className="text-sm font-bold truncate">{d.name}</span>
+                          <FollowCreatorButton
+                            externalId={String(d.id)}
+                            name={d.name}
+                            type="STUDIO"
+                            mediaType={MediaType.GAME}
+                            initialIsFollowing={followedIds.has(String(d.id))}
+                            showLabel
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>
