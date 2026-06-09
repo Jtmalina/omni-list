@@ -236,13 +236,6 @@ export default function ItemDetailsDialog({
                 onDelete={onItemDelete ? () => onItemDelete(item.id) : undefined}
                 onEdit={() => setIsEditing(true)}
               />
-
-              {canEdit && !isEditing && (
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setIsEditing(true)}>
-                  <Edit2 className="h-3 w-3" />
-                  Edit
-                </Button>
-              )}
             </div>
           </div>
         </DialogHeader>

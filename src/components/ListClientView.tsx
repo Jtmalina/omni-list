@@ -369,6 +369,7 @@ export default function ListClientView({
                         isOwner={isOwner}
                         onStatusToggle={() => handleStatusToggle(item)}
                         onDelete={() => handleItemDelete(item.id)}
+                        onEdit={() => handleItemClick(item)}
                       />
                     </div>
 
@@ -547,8 +548,6 @@ export default function ListClientView({
               listId={list.id} 
               initialDate={selectedDate} 
               onOpenChange={handleOpenChange}
-              buttonVariant={isSidebarCollapsed ? "ghost" : "default"}
-              buttonSize={isSidebarCollapsed ? "icon" : "default"}
               tagConfigs={tagConfigsMap}
               allExistingTags={allTags}
             />
@@ -661,6 +660,7 @@ export default function ListClientView({
                           isOwner={isOwner}
                           onStatusToggle={() => handleStatusToggle(item)}
                           onDelete={() => handleItemDelete(item.id)}
+                          onEdit={() => handleItemClick(item)}
                         />
                       </div>
                     </div>
@@ -710,7 +710,7 @@ export default function ListClientView({
         {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
             <p className="text-2xl font-black uppercase">Nothing here yet</p>
-            <p className="font-mono text-sm">No items match this category or filter</p>
+            <p className="font-mono text-sm">No items match your search</p>
           </div>
         )}
       </main>
