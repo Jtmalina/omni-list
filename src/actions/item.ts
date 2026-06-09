@@ -9,6 +9,7 @@ import { logActivity } from '@/lib/activity'
 
 export async function createItem(data: {
   title: string
+  description?: string
   notes?: string
   listId: string
   type: ItemType

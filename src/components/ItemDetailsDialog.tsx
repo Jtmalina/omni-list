@@ -352,9 +352,9 @@ export default function ItemDetailsDialog({
                         </div>
                       )}
                       <p className="text-sm text-muted-foreground line-clamp-4 italic leading-relaxed">
-                        {item.notes || "No description provided."}
+                        {item.description || "No description available."}
                       </p>
-                      
+
                       <div className="pt-2">
                         <Button asChild variant="outline" size="sm" className="w-full rounded-xl font-bold uppercase text-[10px] gap-2 border-primary/20 hover:bg-primary/5 shadow-sm">
                           <Link href={`/media/${item.mediaType === 'MOVIE' ? 'movie' : item.mediaType === 'SHOW' ? 'tv' : 'game'}/${item.media.externalId}`}>
@@ -424,14 +424,19 @@ export default function ItemDetailsDialog({
                 </div>
               )}
 
-              {!isMedia && (
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase font-bold text-muted-foreground">Notes</Label>
-                  <div className="p-4 bg-muted/30 rounded-lg min-h-[100px] text-sm whitespace-pre-wrap border italic leading-relaxed">
-                    {item.notes || "No notes added."}
-                  </div>
+              {/* My Notes — shown for all item types */}
+              <div className="space-y-2">
+                <Label className="text-xs uppercase font-bold text-muted-foreground">
+                  My Notes
+                </Label>
+                <div className="p-4 bg-muted/30 rounded-lg min-h-[60px] text-sm whitespace-pre-wrap border italic leading-relaxed text-muted-foreground">
+                  {item.notes || (
+                    <span className="opacity-40">
+                      {canEdit ? 'No personal notes yet — click Edit to add some.' : 'No notes added.'}
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
             </>
           )}
 

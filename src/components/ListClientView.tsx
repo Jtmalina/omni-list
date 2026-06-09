@@ -385,9 +385,9 @@ export default function ListClientView({
                       )}>
                         {item.title}
                       </h3>
-                      {item.notes && (
+                      {(item.description || item.notes) && (
                         <p className="text-sm text-slate-700 line-clamp-4 font-medium italic">
-                          &ldquo;{item.notes}&rdquo;
+                          &ldquo;{item.description || item.notes}&rdquo;
                         </p>
                       )}
                     </div>
@@ -666,7 +666,7 @@ export default function ListClientView({
                     </div>
 
                     <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
-                      {item.notes || "No description provided."}
+                      {item.description || item.notes || "No description provided."}
                     </p>
 
                     <div className="mt-auto flex items-center justify-between gap-3">

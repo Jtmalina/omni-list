@@ -117,6 +117,7 @@ export async function syncUpcomingReleasesAction(userId?: string) {
         if (!exists) {
           await createItem({
             title: item.title,
+            description: item.overview || undefined,
             notes: `Auto-added because you follow ${follow.name}`,
             listId: user.autoAddListId,
             type: ItemType.MEDIA,

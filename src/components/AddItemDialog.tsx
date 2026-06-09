@@ -71,7 +71,8 @@ export default function AddItemDialog({
   )
   const [selectedListId, setSelectedListId] = useState(listId || '')
   const [title, setTitle] = useState(preselectedMedia?.title || preselectedGame?.title || '')
-  const [notes, setNotes] = useState(preselectedMedia?.overview || preselectedGame?.overview || '')
+  const [description, setDescription] = useState(preselectedMedia?.overview || preselectedGame?.overview || '')
+  const [notes, setNotes] = useState('')
   const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : (preselectedMedia?.releaseDate || preselectedGame?.releaseDate || ''))
   const [dueTime, setDueTime] = useState('')
   const [color, setColor] = useState<string>('')
@@ -125,25 +126,26 @@ export default function AddItemDialog({
     setSelectedGame(null)
     setFetchingDetails(false)
     setTitle('')
+    setDescription('')
     setNotes('')
   }
 
   const handleMediaSelect = (result: MediaSearchResult) => {
     setSelectedMedia(result)
     setTitle(result.title)
-    setNotes(result.overview)
+    setDescription(result.overview)
     if (result.releaseDate) setDueDate(result.releaseDate)
   }
 
   const handleGameSelect = async (result: GameSearchResult) => {
     setSelectedGame(result)
     setTitle(result.title)
-    setNotes(result.overview) // genres as placeholder while details load
+    setDescription(result.overview) // genres as placeholder while details load
     if (result.releaseDate) setDueDate(result.releaseDate)
     setFetchingDetails(true)
     const details = await fetchGameDetailsAction(result.id)
     setFetchingDetails(false)
-    if (details?.description) setNotes(details.description)
+    if (details?.description) setDescription(details.description)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -185,6 +187,7 @@ export default function AddItemDialog({
 
     await createItem({
       title,
+      description: description || undefined,
       notes: notes || undefined,
       listId: selectedListId,
       type: effectiveType,
@@ -202,7 +205,8 @@ export default function AddItemDialog({
   const resetForm = () => {
     setItemMode(preselectedGame ? 'game' : preselectedMedia ? 'film' : 'task')
     setTitle(preselectedMedia?.title || preselectedGame?.title || '')
-    setNotes(preselectedMedia?.overview || preselectedGame?.overview || '')
+    setDescription(preselectedMedia?.overview || preselectedGame?.overview || '')
+    setNotes('')
     setDueDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : (preselectedMedia?.releaseDate || preselectedGame?.releaseDate || ''))
     setDueTime('')
     setColor('')
@@ -310,7 +314,7 @@ export default function AddItemDialog({
                       setSelectedMedia(null)
                       setSelectedGame(null)
                       setTitle('')
-                      setNotes('')
+                      setDescription('')
                     }}
                   >
                     <X className="h-3 w-3" />
@@ -355,17 +359,40 @@ export default function AddItemDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes" className="flex items-center gap-2">
-                Notes (Optional)
-                {fetchingDetails && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-              </Label>
-              <Input
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
+            {itemMode === 'task' ? (
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes (Optional)</Label>
+                <Input
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Any extra details..."
+                />
+              </div>
+            ) : (
+              <>
+                {description && (
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider">
+                      Description
+                      {fetchingDetails && <Loader2 className="h-3 w-3 animate-spin" />}
+                    </Label>
+                    <p className="text-xs text-muted-foreground italic leading-relaxed line-clamp-3 px-1">
+                      {description}
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="notes">My Notes (Optional)</Label>
+                  <Input
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder={`e.g. "Very scary, watch with friends"`}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

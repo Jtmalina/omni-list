@@ -171,9 +171,10 @@ enum MediaType {
 }
 
 model Item {
-  id        String     @id @default(cuid())
-  title     String
-  notes     String?
+  id          String     @id @default(cuid())
+  title       String
+  description String?    // Immutable API synopsis (TMDB overview, RAWG description)
+  notes       String?    // User's personal notes
   status    ItemStatus @default(TODO)
   dueDate   DateTime?
   type      ItemType   @default(TASK)
