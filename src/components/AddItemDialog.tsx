@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createItem } from '@/actions/item'
 import { ItemType, MediaType } from '@prisma/client'
 import { Button } from '@/components/ui/button'
@@ -25,11 +25,12 @@ import MediaSearch from './MediaSearch'
 import GameSearch from './GameSearch'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
-import { X, Gamepad2, Loader2, Plus } from 'lucide-react'
+import { X, Gamepad2, Loader2, Plus, List as ListIcon } from 'lucide-react'
 import { fetchStreamingInfoAction, fetchGameDetailsAction } from '@/actions/media'
 import { format } from 'date-fns'
 import { TagManager } from './TagManager'
 import { cn } from '@/lib/utils'
+import { getLists } from '@/actions/list'
 
 type ItemMode = 'task' | 'film' | 'game'
 
@@ -41,28 +42,60 @@ export default function AddItemDialog({
   buttonSize = 'default',
   tagConfigs = {},
   allExistingTags = [],
+  preselectedMedia,
+  preselectedGame,
+  isManualOpen,
+  onClose,
 }: {
-  listId: string
+  listId?: string
   initialDate?: Date
   onOpenChange?: (open: boolean) => void
   buttonVariant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link'
   buttonSize?: 'default' | 'sm' | 'lg' | 'icon'
   tagConfigs?: Record<string, string>
   allExistingTags?: string[]
+  preselectedMedia?: MediaSearchResult
+  preselectedGame?: GameSearchResult
+  isManualOpen?: boolean
+  onClose?: () => void
 }) {
-  const [open, setOpen] = useState(!!initialDate)
+  const [open, setOpen] = useState(isManualOpen ?? !!initialDate)
   const [loading, setLoading] = useState(false)
+  const [fetchingLists, setFetchingLists] = useState(false)
+  const [availableLists, setAvailableLists] = useState<{ id: string, title: string }[]>([])
 
-  const [itemMode, setItemMode] = useState<ItemMode>('task')
-  const [title, setTitle] = useState('')
-  const [notes, setNotes] = useState('')
-  const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : '')
+  const [itemMode, setItemMode] = useState<ItemMode>(
+    preselectedGame ? 'game' : preselectedMedia ? 'film' : 'task'
+  )
+  const [selectedListId, setSelectedListId] = useState(listId || '')
+  const [title, setTitle] = useState(preselectedMedia?.title || preselectedGame?.title || '')
+  const [notes, setNotes] = useState(preselectedMedia?.overview || preselectedGame?.overview || '')
+  const [dueDate, setDueDate] = useState(initialDate ? format(initialDate, 'yyyy-MM-dd') : (preselectedMedia?.releaseDate || preselectedGame?.releaseDate || ''))
   const [dueTime, setDueTime] = useState('')
   const [color, setColor] = useState<string>('')
   const [tags, setTags] = useState<string[]>([])
-  const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(null)
-  const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(null)
+  const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(preselectedMedia || null)
+  const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(preselectedGame || null)
   const [fetchingDetails, setFetchingDetails] = useState(false)
+
+  useEffect(() => {
+    if (isManualOpen !== undefined) {
+      setOpen(isManualOpen)
+    }
+  }, [isManualOpen])
+
+  useEffect(() => {
+    if (open && !listId) {
+      setFetchingLists(true)
+      getLists().then(lists => {
+        setAvailableLists(lists)
+        if (lists.length > 0 && !selectedListId) {
+          setSelectedListId(lists[0].id)
+        }
+        setFetchingLists(false)
+      })
+    }
+  }, [open, listId])
 
   const PRESET_COLORS = [
     { name: 'Blue', value: '#3b82f6' },
@@ -76,7 +109,10 @@ export default function AddItemDialog({
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (onOpenChange) onOpenChange(newOpen)
-    if (!newOpen) setTimeout(resetForm, 300)
+    if (!newOpen) {
+      if (onClose) onClose()
+      setTimeout(resetForm, 300)
+    }
   }
 
   const handleModeChange = (mode: ItemMode) => {
@@ -92,12 +128,14 @@ export default function AddItemDialog({
     setSelectedMedia(result)
     setTitle(result.title)
     setNotes(result.overview)
+    if (result.releaseDate) setDueDate(result.releaseDate)
   }
 
   const handleGameSelect = async (result: GameSearchResult) => {
     setSelectedGame(result)
     setTitle(result.title)
     setNotes(result.overview) // genres as placeholder while details load
+    if (result.releaseDate) setDueDate(result.releaseDate)
     setFetchingDetails(true)
     const details = await fetchGameDetailsAction(result.id)
     setFetchingDetails(false)
@@ -106,7 +144,7 @@ export default function AddItemDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title) return
+    if (!title || !selectedListId) return
 
     setLoading(true)
 
@@ -144,7 +182,7 @@ export default function AddItemDialog({
     await createItem({
       title,
       notes: notes || undefined,
-      listId,
+      listId: selectedListId,
       type: effectiveType,
       mediaType: effectiveMediaType,
       dueDate: dueDate ? new Date(`${dueDate}T${dueTime || '00:00'}:00`) : undefined,
@@ -158,15 +196,15 @@ export default function AddItemDialog({
   }
 
   const resetForm = () => {
-    setItemMode('task')
-    setTitle('')
-    setNotes('')
-    setDueDate('')
+    setItemMode(preselectedGame ? 'game' : preselectedMedia ? 'film' : 'task')
+    setTitle(preselectedMedia?.title || preselectedGame?.title || '')
+    setNotes(preselectedMedia?.overview || preselectedGame?.overview || '')
+    setDueDate(initialDate ? format(initialDate, 'yyyy-MM-dd') : (preselectedMedia?.releaseDate || preselectedGame?.releaseDate || ''))
     setDueTime('')
     setColor('')
     setTags([])
-    setSelectedMedia(null)
-    setSelectedGame(null)
+    setSelectedMedia(preselectedMedia || null)
+    setSelectedGame(preselectedGame || null)
     setFetchingDetails(false)
   }
 
@@ -174,7 +212,7 @@ export default function AddItemDialog({
     ? {
         posterPath: selectedMedia.posterPath,
         title: selectedMedia.title,
-        subtitle: `${selectedMedia.mediaType} • ${new Date(selectedMedia.releaseDate).getFullYear()}`,
+        subtitle: `${selectedMedia.mediaType} • ${selectedMedia.releaseDate ? new Date(selectedMedia.releaseDate).getFullYear() : '—'}`,
         score: `★ ${selectedMedia.voteAverage.toFixed(1)}`,
         extra: null,
         icon: null,
@@ -195,17 +233,39 @@ export default function AddItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button variant={buttonVariant} size={buttonSize} title="Add New Item">
-          {buttonSize === 'icon' ? <Plus className="h-5 w-5" /> : 'Add Item'}
-        </Button>
-      </DialogTrigger>
+      {!isManualOpen && (
+        <DialogTrigger asChild>
+          <Button variant={buttonVariant} size={buttonSize} title="Add New Item">
+            {buttonSize === 'icon' ? <Plus className="h-5 w-5" /> : 'Add Item'}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Add New Item</DialogTitle>
           </DialogHeader>
           <div className="py-4 space-y-4">
+            {!listId && (
+               <div className="space-y-2">
+               <Label className="flex items-center gap-2">
+                 <ListIcon className="h-3 w-3" />
+                 Target List
+                 {fetchingLists && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+               </Label>
+               <Select value={selectedListId} onValueChange={setSelectedListId} required>
+                 <SelectTrigger>
+                   <SelectValue placeholder="Choose a list..." />
+                 </SelectTrigger>
+                 <SelectContent>
+                   {availableLists.map(l => (
+                     <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>
+                   ))}
+                 </SelectContent>
+               </Select>
+             </div>
+            )}
+            
             <div className="space-y-2">
               <Label>Type</Label>
               <Select value={itemMode} onValueChange={(v) => handleModeChange(v as ItemMode)}>
@@ -236,20 +296,22 @@ export default function AddItemDialog({
 
             {selectedPreview && (
               <div className="flex gap-4 p-3 bg-muted rounded-lg relative">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm"
-                  onClick={() => {
-                    setSelectedMedia(null)
-                    setSelectedGame(null)
-                    setTitle('')
-                    setNotes('')
-                  }}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                {!preselectedMedia && !preselectedGame && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background shadow-sm"
+                    onClick={() => {
+                      setSelectedMedia(null)
+                      setSelectedGame(null)
+                      setTitle('')
+                      setNotes('')
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
                 <div className="relative h-20 w-14 flex-shrink-0 rounded overflow-hidden bg-muted">
                   {selectedPreview.posterPath ? (
                     <Image
@@ -353,7 +415,7 @@ export default function AddItemDialog({
             </div>
 
             <TagManager 
-              listId={listId} 
+              listId={selectedListId} 
               tags={tags} 
               onChange={setTags} 
               tagConfigs={tagConfigs}
@@ -361,7 +423,7 @@ export default function AddItemDialog({
             />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !selectedListId}>
               {loading ? 'Adding...' : 'Add to List'}
             </Button>
           </DialogFooter>

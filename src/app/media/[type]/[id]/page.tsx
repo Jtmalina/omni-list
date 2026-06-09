@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
+import MediaActionButtons from '@/components/MediaActionButtons'
 
 interface MediaPageProps {
   params: Promise<{
@@ -34,7 +35,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Hero Section */}
-      <div className="relative h-[60vh] w-full overflow-hidden">
+      <div className="relative h-[70vh] w-full overflow-hidden">
         <Image
           src={isGame ? data.posterPath : (data.backdropPath || data.posterPath)}
           alt={data.title}
@@ -47,12 +48,12 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
         <div className="container mx-auto px-8 relative h-full flex flex-col justify-end pb-12">
           <div className="flex flex-col md:flex-row gap-8 items-end">
             {/* Poster */}
-            <div className="relative h-72 w-48 shrink-0 rounded-2xl overflow-hidden shadow-2xl border-4 border-background/20 hidden md:block">
+            <div className="relative h-[450px] w-[300px] shrink-0 rounded-2xl overflow-hidden shadow-2xl border-4 border-background/20 hidden md:block">
               <Image src={data.posterPath} alt={data.title} fill className="object-cover" />
             </div>
 
             {/* Info */}
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-6 pb-4">
               <div className="flex flex-wrap gap-2">
                 {data.genres?.map((g: any) => (
                   <Badge key={g.id || g.name} variant="secondary" className="bg-primary/10 text-primary border-none font-bold uppercase text-[10px]">
@@ -60,31 +61,33 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                   </Badge>
                 ))}
               </div>
-              <h1 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none">
-                {data.title}
-              </h1>
-              {data.tagline && (
-                <p className="text-xl text-muted-foreground italic font-medium leading-tight">
-                  &ldquo;{data.tagline}&rdquo;
-                </p>
-              )}
+              <div className="space-y-2">
+                <h1 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none">
+                  {data.title}
+                </h1>
+                {data.tagline && (
+                  <p className="text-xl md:text-2xl text-muted-foreground italic font-medium leading-tight">
+                    &ldquo;{data.tagline}&rdquo;
+                  </p>
+                )}
+              </div>
               
-              <div className="flex flex-wrap items-center gap-6 pt-2">
+              <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="text-xl font-black tabular-nums">
+                  <Star className="h-6 w-6 text-yellow-500 fill-current" />
+                  <span className="text-2xl font-black tabular-nums">
                     {(data.voteAverage || data.rating || 0).toFixed(1)}
                   </span>
                 </div>
                 {data.runtime && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="h-4 w-4" />
+                    <Clock className="h-5 w-5" />
                     <span className="text-sm font-bold uppercase tabular-nums">{data.runtime} min</span>
                   </div>
                 )}
                 {data.releaseDate && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
+                    <Calendar className="h-5 w-5" />
                     <span className="text-sm font-bold uppercase tabular-nums">
                       {new Date(data.releaseDate).getFullYear()}
                     </span>
@@ -95,6 +98,19 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
                     {data.status}
                   </Badge>
                 )}
+              </div>
+
+              {/* Action Buttons (Add / Edit) */}
+              <div className="pt-4">
+                <MediaActionButtons 
+                  externalId={id}
+                  type={type as any}
+                  title={data.title}
+                  overview={data.overview || data.description}
+                  posterPath={data.posterPath}
+                  releaseDate={data.releaseDate}
+                  rating={data.voteAverage || data.rating || 0}
+                />
               </div>
             </div>
           </div>
@@ -109,7 +125,7 @@ export default async function MediaDetailPage({ params }: MediaPageProps) {
               <Sparkles className="h-5 w-5 text-primary" />
               Overview
             </h2>
-            <p className="text-lg leading-relaxed text-muted-foreground font-medium">
+            <p className="text-lg leading-relaxed text-muted-foreground font-medium whitespace-pre-wrap">
               {data.overview || data.description}
             </p>
           </section>

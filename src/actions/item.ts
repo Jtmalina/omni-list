@@ -161,3 +161,21 @@ export async function deleteItem(id: string, listId: string) {
 
   revalidatePath(`/list/${listId}`)
 }
+
+export async function findItemByExternalId(externalId: string) {
+  const session = await auth()
+  if (!session?.user?.id) return null
+
+  const userId = session.user.id
+
+  return await prisma.item.findFirst({
+    where: {
+      list: { userId },
+      media: { externalId }
+    },
+    include: {
+      media: true,
+      list: true
+    }
+  })
+}
