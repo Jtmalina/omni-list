@@ -42,11 +42,12 @@ export default function MediaActionButtons({
     try {
       const [item, userLists] = await Promise.all([
         findItemByExternalId(externalId),
-        getLists()
+        getLists().catch(() => []) // Catch Unauthorized or other errors gracefully
       ])
       setExistingItem(item)
       setLists(userLists)
     } catch (error) {
+      // If unauthorized, we just show nothing or a sign-in prompt (here we'll just show no buttons)
       console.error("Failed to load media actions:", error)
     } finally {
       setLoading(false)
@@ -55,6 +56,11 @@ export default function MediaActionButtons({
 
   if (loading) {
     return <SkeletonButtons />
+  }
+
+  // If no lists returned and no existing item, user is likely logged out
+  if (lists.length === 0 && !existingItem) {
+    return null
   }
 
   const mediaData = {
@@ -100,6 +106,7 @@ export default function MediaActionButtons({
       {/* Dialogs */}
       <AddItemDialog
         isManualOpen={isAddOpen}
+        showTrigger={false}
         onClose={() => {
           setIsAddOpen(false)
           loadData() // Refresh to see if added

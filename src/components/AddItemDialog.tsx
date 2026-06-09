@@ -46,6 +46,7 @@ export default function AddItemDialog({
   preselectedGame,
   isManualOpen,
   onClose,
+  showTrigger = true,
 }: {
   listId?: string
   initialDate?: Date
@@ -58,6 +59,7 @@ export default function AddItemDialog({
   preselectedGame?: GameSearchResult
   isManualOpen?: boolean
   onClose?: () => void
+  showTrigger?: boolean
 }) {
   const [open, setOpen] = useState(isManualOpen ?? !!initialDate)
   const [loading, setLoading] = useState(false)
@@ -92,6 +94,8 @@ export default function AddItemDialog({
         if (lists.length > 0 && !selectedListId) {
           setSelectedListId(lists[0].id)
         }
+        setFetchingLists(false)
+      }).catch(() => {
         setFetchingLists(false)
       })
     }
@@ -233,7 +237,7 @@ export default function AddItemDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!isManualOpen && (
+      {showTrigger && (
         <DialogTrigger asChild>
           <Button variant={buttonVariant} size={buttonSize} title="Add New Item">
             {buttonSize === 'icon' ? <Plus className="h-5 w-5" /> : 'Add Item'}
