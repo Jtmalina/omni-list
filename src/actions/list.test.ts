@@ -31,7 +31,12 @@ describe('list actions', () => {
 
     expect(prismaMock.list.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: 'test-user-id' },
+        where: {
+          OR: [
+            { userId: 'test-user-id' },
+            { sharedWith: { some: { userId: 'test-user-id' } } }
+          ]
+        },
       })
     )
   })

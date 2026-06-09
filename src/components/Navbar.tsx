@@ -1,14 +1,16 @@
+'use client'
+
 import Link from 'next/link'
 import { LayoutList, ExternalLink, LogOut } from 'lucide-react'
-import { auth, signOut } from '@/lib/auth'
+import { useSession, signOut } from 'next-auth/react'
 import { Button } from './ui/button'
 import ServarrSettingsDialog from './ServarrSettingsDialog'
 import FriendsDialog from './FriendsDialog'
 import ActivityFeed from './ActivityFeed'
 import AutomationSettingsDialog from './AutomationSettingsDialog'
 
-export default async function Navbar() {
-  const session = await auth()
+export default function Navbar() {
+  const { data: session } = useSession()
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -27,16 +29,13 @@ export default async function Navbar() {
               <FriendsDialog />
               <AutomationSettingsDialog />
               <ServarrSettingsDialog />
-              <form
-                action={async () => {
-                  "use server"
-                  await signOut()
-                }}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => signOut()}
               >
-                <Button variant="ghost" size="icon" type="submit">
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </form>
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           ) : (
             <Link href="/login">

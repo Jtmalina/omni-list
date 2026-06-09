@@ -31,6 +31,7 @@ interface WeeklyViewProps {
 
 export default function WeeklyView({
   items,
+  listId,
   currentDate,
   onAddClick,
   onItemClick,
