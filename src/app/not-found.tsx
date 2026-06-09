@@ -9,7 +9,7 @@ export default function NotFound() {
       <div className="text-center">
         <h2 className="text-4xl font-black uppercase tracking-tighter mb-2">404 - Not Found</h2>
         <p className="text-muted-foreground mb-6">The page you are looking for does not exist or you do not have access to it.</p>
-        <Link href="/">
+        <Link href="/dashboard">
           <Button variant="outline">Back to Dashboard</Button>
         </Link>
       </div>

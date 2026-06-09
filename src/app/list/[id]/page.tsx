@@ -42,7 +42,7 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
     )}>
       <div className="mb-6">
         <div className="flex justify-between items-center">
-          <Link href="/" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link href="/dashboard" className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors">
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
