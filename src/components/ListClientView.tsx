@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useOptimistic, useTransition } from 'react'
+import { useState, useEffect, useMemo, useOptimistic, useTransition } from 'react'
 import { Item, ItemStatus, ListType, MediaMetadata, MediaType } from '@prisma/client'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -68,6 +68,11 @@ export default function ListClientView({
   const router = useRouter()
   // Enable live sync for this list
   useRealtimeSync(list.id)
+
+  // Cache the list type so loading.tsx can show the right skeleton next visit
+  useEffect(() => {
+    localStorage.setItem(`omnilist_type_${list.id}`, list.type)
+  }, [list.id, list.type])
 
   const [isPending, startTransition] = useTransition()
   
