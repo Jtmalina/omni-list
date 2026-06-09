@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X, LayoutList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
@@ -94,6 +94,7 @@ export default function ListClientView({
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
 
   const tagConfigsMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -557,8 +558,8 @@ export default function ListClientView({
 
       {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
-        {/* Search Bar */}
-        <div className="mb-8 flex items-center gap-4">
+        {/* Search Bar + Layout Toggle */}
+        <div className="mb-8 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -576,136 +577,298 @@ export default function ListClientView({
               </button>
             )}
           </div>
+          {/* Layout toggle */}
+          <div className="flex items-center gap-1 p-1 bg-muted/40 rounded-xl shrink-0">
+            <button
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+              className={cn(
+                'p-2 rounded-lg transition-all',
+                viewMode === 'grid' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              title="List view"
+              className={cn(
+                'p-2 rounded-lg transition-all',
+                viewMode === 'list' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <LayoutList className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {filteredItems.map((item) => {
-            const isGame = item.mediaType === 'GAME'
-            const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
-            const providers = streaming.flatrate || []
-            const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
+        {/* Grid view */}
+        {viewMode === 'grid' && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+            {filteredItems.map((item) => {
+              const isGame = item.mediaType === 'GAME'
+              const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
+              const providers = (streaming.flatrate || []).slice(0, 3)
+              const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
 
-            return (
-              <Card key={item.id} 
-                onClick={() => handleItemClick(item)}
-                className={cn(
-                "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20 cursor-pointer",
-                item.status === 'COMPLETED' ? "opacity-60 grayscale-[0.3]" : ""
-              )}>
-                <CardContent className="p-0 flex flex-col sm:flex-row h-full">
-                  <div className="relative w-full sm:w-48 h-72 sm:h-auto flex-shrink-0 bg-muted">
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => handleItemClick(item)}
+                  className={cn(
+                    'group relative cursor-pointer rounded-xl overflow-hidden border-2 border-transparent',
+                    'hover:border-primary/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-200',
+                    item.status === 'COMPLETED' ? 'opacity-50 grayscale-[0.4]' : ''
+                  )}
+                >
+                  {/* Poster */}
+                  <div className="relative aspect-[2/3] bg-muted">
                     {item.media?.posterPath ? (
                       <Image
                         src={item.media.posterPath}
                         alt={item.title}
                         fill
                         className="object-cover"
-                        sizes="(max-width: 640px) 100vw, 192px"
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full">
-                        {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> :
-                         item.mediaType === 'GAME' ? <Gamepad2 className="h-12 w-12 opacity-20" /> :
-                         <Tv className="h-12 w-12 opacity-20" />}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {item.mediaType === 'MOVIE' ? <Film className="h-10 w-10 opacity-20" /> :
+                         item.mediaType === 'GAME' ? <Gamepad2 className="h-10 w-10 opacity-20" /> :
+                         <Tv className="h-10 w-10 opacity-20" />}
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="p-6 flex flex-col flex-1 min-w-0">
-                    <div className="flex justify-between items-start gap-4 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h2 className={cn(
-                            "text-2xl font-bold truncate",
-                            item.status === 'COMPLETED' ? 'line-through' : ''
-                          )}
-                          style={{ color: item.color || undefined }}>
-                            {item.title}
-                          </h2>
-                          {item.media?.rating && (
-                            <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-400/10 text-yellow-600 rounded text-sm font-bold">
-                              <Star className="h-3 w-3 fill-current" />
-                              {item.media.rating.toFixed(1)}
-                            </div>
-                          )}
+
+                    {/* Hover overlay with description */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 gap-1">
+                      <p className="text-white text-[11px] leading-relaxed line-clamp-4 italic">
+                        {item.description || item.notes || ''}
+                      </p>
+                      {item.media?.rating && (
+                        <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+                          <Star className="h-3 w-3 fill-current" />
+                          {item.media.rating.toFixed(1)}
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-[10px] uppercase">
-                            {item.mediaType || 'TASK'}
-                          </Badge>
-                          {item.tags.map(tag => (
-                            <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} />
-                          ))}
-                          {isGame && gameInfo?.esrb && (
-                            <Badge variant="outline" className="text-[10px] uppercase font-semibold">
-                              {gameInfo.esrb}
-                            </Badge>
-                          )}
-                          {item.dueDate && (
-                            <span className="text-xs text-muted-foreground font-medium italic">
-                              Expected: {new Date(item.dueDate).toLocaleDateString()}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <ItemActions 
-                          id={item.id} 
-                          status={item.status} 
-                          listId={list.id} 
-                          mediaType={item.mediaType} 
-                          isRadarrEnabled={isRadarrEnabled} 
-                          isSonarrEnabled={isSonarrEnabled}
-                          canEdit={canEdit}
-                          isOwner={isOwner}
-                          onStatusToggle={() => handleStatusToggle(item)}
-                          onDelete={() => handleItemDelete(item.id)}
-                          onEdit={() => setSelectedItem(item)}
-                        />
-                      </div>
+                      )}
                     </div>
 
-                    <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
-                      {item.description || item.notes || "No description provided."}
-                    </p>
-
-                    <div className="mt-auto flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        {item.status === 'COMPLETED' ? (
-                          <Badge className="bg-green-500 hover:bg-green-600">
-                            {isGame ? 'Completed' : 'Finished'}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">
-                            {isGame ? 'Playing' : 'Currently Watching'}
-                          </Badge>
-                        )}
+                    {/* Status badge — top left */}
+                    {item.status === 'COMPLETED' && (
+                      <div className="absolute top-2 left-2">
+                        <Badge className="bg-green-500 text-[9px] px-1.5 py-0.5 shadow">
+                          {isGame ? 'Done' : 'Watched'}
+                        </Badge>
                       </div>
+                    )}
 
-                      {!isGame && providers.length > 0 ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
-                          <div className="flex -space-x-2">
-                            {providers.slice(0, 3).map((provider: any) => (
-                              <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
-                                <Image
-                                  src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
-                                  alt={provider.provider_name}
-                                  fill
-                                  className="object-cover"
-                                />
+                    {/* Streaming logos — top right */}
+                    {providers.length > 0 && (
+                      <div className="absolute top-2 right-2 flex flex-col gap-1">
+                        {providers.map((provider: any) => (
+                          <div
+                            key={provider.provider_id}
+                            className="relative h-6 w-6 rounded-md overflow-hidden border border-white/20 shadow-md"
+                            title={provider.provider_name}
+                          >
+                            <Image
+                              src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
+                              alt={provider.provider_name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Actions menu — top right on hover, below streaming logos */}
+                    <div
+                      className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <ItemActions
+                        id={item.id}
+                        status={item.status}
+                        listId={list.id}
+                        mediaType={item.mediaType}
+                        isRadarrEnabled={isRadarrEnabled}
+                        isSonarrEnabled={isSonarrEnabled}
+                        canEdit={canEdit}
+                        isOwner={isOwner}
+                        onStatusToggle={() => handleStatusToggle(item)}
+                        onDelete={() => handleItemDelete(item.id)}
+                        onEdit={() => setSelectedItem(item)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Title + meta below poster */}
+                  <div className="p-2 space-y-1">
+                    <p
+                      className={cn(
+                        'text-xs font-bold leading-tight line-clamp-2',
+                        item.status === 'COMPLETED' ? 'line-through opacity-60' : ''
+                      )}
+                      style={{ color: item.color || undefined }}
+                    >
+                      {item.title}
+                    </p>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 uppercase border-muted-foreground/20">
+                        {item.mediaType || 'TASK'}
+                      </Badge>
+                      {item.tags.slice(0, 2).map(tag => (
+                        <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} className="text-[9px] px-1 py-0" />
+                      ))}
+                      {isGame && gameInfo?.esrb && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 uppercase">
+                          {gameInfo.esrb}
+                        </Badge>
+                      )}
+                    </div>
+                    {item.dueDate && (
+                      <p className="text-[10px] text-muted-foreground italic truncate">
+                        {new Date(item.dueDate).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* List view (original) */}
+        {viewMode === 'list' && (
+          <div className="space-y-6">
+            {filteredItems.map((item) => {
+              const isGame = item.mediaType === 'GAME'
+              const streaming = (!isGame && (item.media?.streamingInfo as unknown as StreamingInfo)) || {}
+              const providers = streaming.flatrate || []
+              const gameInfo = isGame ? (item.media?.streamingInfo as unknown as GameInfo) : null
+
+              return (
+                <Card key={item.id}
+                  onClick={() => handleItemClick(item)}
+                  className={cn(
+                  "overflow-hidden transition-all hover:ring-2 hover:ring-primary/20 cursor-pointer",
+                  item.status === 'COMPLETED' ? "opacity-60 grayscale-[0.3]" : ""
+                )}>
+                  <CardContent className="p-0 flex flex-col sm:flex-row h-full">
+                    <div className="relative w-full sm:w-48 h-72 sm:h-auto flex-shrink-0 bg-muted">
+                      {item.media?.posterPath ? (
+                        <Image
+                          src={item.media.posterPath}
+                          alt={item.title}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, 192px"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          {item.mediaType === 'MOVIE' ? <Film className="h-12 w-12 opacity-20" /> :
+                           item.mediaType === 'GAME' ? <Gamepad2 className="h-12 w-12 opacity-20" /> :
+                           <Tv className="h-12 w-12 opacity-20" />}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-6 flex flex-col flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-4 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <h2 className={cn(
+                              "text-2xl font-bold truncate",
+                              item.status === 'COMPLETED' ? 'line-through' : ''
+                            )}
+                            style={{ color: item.color || undefined }}>
+                              {item.title}
+                            </h2>
+                            {item.media?.rating && (
+                              <div className="flex items-center gap-1 px-2 py-0.5 bg-yellow-400/10 text-yellow-600 rounded text-sm font-bold">
+                                <Star className="h-3 w-3 fill-current" />
+                                {item.media.rating.toFixed(1)}
                               </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] uppercase">
+                              {item.mediaType || 'TASK'}
+                            </Badge>
+                            {item.tags.map(tag => (
+                              <TagBadge key={tag} name={tag} color={tagConfigsMap[tag]} />
                             ))}
+                            {isGame && gameInfo?.esrb && (
+                              <Badge variant="outline" className="text-[10px] uppercase font-semibold">
+                                {gameInfo.esrb}
+                              </Badge>
+                            )}
+                            {item.dueDate && (
+                              <span className="text-xs text-muted-foreground font-medium italic">
+                                Expected: {new Date(item.dueDate).toLocaleDateString()}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      ) : null}
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <ItemActions
+                            id={item.id}
+                            status={item.status}
+                            listId={list.id}
+                            mediaType={item.mediaType}
+                            isRadarrEnabled={isRadarrEnabled}
+                            isSonarrEnabled={isSonarrEnabled}
+                            canEdit={canEdit}
+                            isOwner={isOwner}
+                            onStatusToggle={() => handleStatusToggle(item)}
+                            onDelete={() => handleItemDelete(item.id)}
+                            onEdit={() => setSelectedItem(item)}
+                          />
+                        </div>
+                      </div>
+
+                      <p className="text-muted-foreground text-sm line-clamp-3 mb-3 flex-1 italic">
+                        {item.description || item.notes || "No description provided."}
+                      </p>
+
+                      <div className="mt-auto flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          {item.status === 'COMPLETED' ? (
+                            <Badge className="bg-green-500 hover:bg-green-600">
+                              {isGame ? 'Completed' : 'Finished'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">
+                              {isGame ? 'Playing' : 'Currently Watching'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {!isGame && providers.length > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
+                            <div className="flex -space-x-2">
+                              {providers.slice(0, 3).map((provider: any) => (
+                                <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
+                                  <Image
+                                    src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
+                                    alt={provider.provider_name}
+                                    fill
+                                    className="object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
 
         {filteredItems.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 border-4 border-dashed rounded-3xl opacity-20">
