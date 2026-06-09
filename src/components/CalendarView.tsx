@@ -26,6 +26,7 @@ import { updateItemStatus, deleteItem } from '@/actions/item'
 import ItemDetailsDialog from './ItemDetailsDialog'
 import WeeklyView from './WeeklyView'
 import DailyView from './DailyView'
+import ItemActions from './ItemActions'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -114,8 +115,7 @@ export default function CalendarView({
   const scheduledItems = items.filter((item) => item.dueDate)
   const unscheduledItems = items.filter((item) => !item.dueDate)
 
-  const toggleStatus = (item: Item, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const toggleStatus = (item: Item) => {
     if (!canEdit) return
     if (onStatusToggle) {
       onStatusToggle(item)
@@ -127,8 +127,7 @@ export default function CalendarView({
     }
   }
 
-  const handleDelete = (item: Item, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleDelete = (item: Item) => {
     if (!canEdit) return
     if (onItemDelete) {
       onItemDelete(item.id)
@@ -147,6 +146,10 @@ export default function CalendarView({
     } else {
       setSelectedItem(item)
     }
+  }
+
+  const handleEditClick = (item: ItemWithMedia) => {
+    setSelectedItem(item)
   }
 
   return (
@@ -275,7 +278,7 @@ export default function CalendarView({
                             key={item.id}
                             onClick={() => handleItemClick(item)}
                             className={cn(
-                              "group/item text-[9px] px-1.5 py-0.5 rounded border flex items-center gap-1 cursor-pointer transition-colors font-bold uppercase tracking-tight",
+                              "group/item text-[9px] px-1.5 py-0.5 rounded border flex items-center justify-between gap-1 cursor-pointer transition-colors font-bold uppercase tracking-tight",
                               !itemColor && (item.status === 'COMPLETED'
                                 ? "bg-muted text-muted-foreground hover:bg-muted/80"
                                 : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20")
@@ -288,6 +291,18 @@ export default function CalendarView({
                             )}>
                               {item.title}
                             </span>
+                            <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                              <ItemActions 
+                                id={item.id}
+                                status={item.status}
+                                listId={listId}
+                                canEdit={canEdit}
+                                isOwner={isOwner}
+                                onStatusToggle={() => toggleStatus(item)}
+                                onDelete={() => handleDelete(item)}
+                                onEdit={() => handleEditClick(item)}
+                              />
+                            </div>
                           </div>
                         )
                       })}
@@ -308,7 +323,9 @@ export default function CalendarView({
             onItemClick={handleItemClick}
             onStatusToggle={toggleStatus}
             onDeleteClick={handleDelete}
+            onEditClick={handleEditClick}
             canEdit={canEdit}
+            isOwner={isOwner}
             tagConfigs={tagConfigs}
             isPending={isPending}
           />
@@ -323,7 +340,9 @@ export default function CalendarView({
             onItemClick={handleItemClick}
             onStatusToggle={toggleStatus}
             onDeleteClick={handleDelete}
+            onEditClick={handleEditClick}
             canEdit={canEdit}
+            isOwner={isOwner}
             tagConfigs={tagConfigs}
             isPending={isPending}
           />
@@ -358,29 +377,21 @@ export default function CalendarView({
                   )}
                   style={style}
                 >
-                  <button
-                    onClick={(e) => toggleStatus(item, e)}
-                    disabled={isPending || !canEdit}
-                  >
-                    <div className={cn(
-                      "h-3 w-3 rounded-full border-2 flex items-center justify-center transition-colors",
-                      item.status === 'COMPLETED' ? "bg-current border-current text-primary-foreground" : "border-current opacity-30"
-                    )}>
-                      {item.status === 'COMPLETED' && <div className="w-1 h-1 bg-current rounded-full" />}
-                    </div>
-                  </button>
-                  <span className={cn(item.status === 'COMPLETED' && "line-through opacity-40")}>
-                    {item.title}
-                  </span>
-                  {canEdit && (
-                    <button
-                      className="opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive ml-1"
-                      onClick={(e) => handleDelete(item, e)}
-                      disabled={isPending}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
+                  <div className="opacity-100 flex items-center gap-2">
+                    <ItemActions 
+                      id={item.id}
+                      status={item.status}
+                      listId={listId}
+                      canEdit={canEdit}
+                      isOwner={isOwner}
+                      onStatusToggle={() => toggleStatus(item)}
+                      onDelete={() => handleDelete(item)}
+                      onEdit={() => handleEditClick(item)}
+                    />
+                    <span className={cn(item.status === 'COMPLETED' && "line-through opacity-40")}>
+                      {item.title}
+                    </span>
+                  </div>
                 </div>
               )
             })}

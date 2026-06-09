@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useMemo, useRef } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { format, isSameDay, isToday, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Plus, X, Calendar as CalendarIcon } from 'lucide-react'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Item, ItemStatus, MediaMetadata } from '@prisma/client'
 import { TagBadge } from './TagBadge'
 import { Badge } from '@/components/ui/badge'
+import ItemActions from './ItemActions'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -19,9 +20,11 @@ interface WeeklyViewProps {
   currentDate: Date
   onAddClick: (date: Date) => void
   onItemClick: (item: ItemWithMedia) => void
-  onStatusToggle: (item: Item, e: React.MouseEvent) => void
-  onDeleteClick: (item: Item, e: React.MouseEvent) => void
+  onStatusToggle: (item: Item) => void
+  onDeleteClick: (item: Item) => void
+  onEditClick: (item: ItemWithMedia) => void
   canEdit: boolean
+  isOwner?: boolean
   tagConfigs: Record<string, string>
   isPending: boolean
 }
@@ -33,14 +36,14 @@ export default function WeeklyView({
   onItemClick,
   onStatusToggle,
   onDeleteClick,
+  onEditClick,
   canEdit,
+  isOwner = false,
   tagConfigs,
   isPending
 }: WeeklyViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Generate a window of 3 weeks (Previous, Current, Next) 
-  // each starting from Monday
   const weeks = useMemo(() => {
     const currentWeekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
     return [
@@ -50,7 +53,6 @@ export default function WeeklyView({
     ]
   }, [currentDate])
 
-  // Scroll to current week on load
   useEffect(() => {
     if (containerRef.current) {
       const currentWeekElement = containerRef.current.querySelector('[data-current="true"]')
@@ -77,7 +79,6 @@ export default function WeeklyView({
             data-current={isCurrentWeek}
             className="flex-shrink-0 w-[90vw] sm:w-[450px] snap-center flex flex-col gap-4"
           >
-            {/* Week Label */}
             <div className="flex items-center gap-2 px-2">
               <CalendarIcon className="h-4 w-4 text-primary opacity-50" />
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
@@ -85,7 +86,6 @@ export default function WeeklyView({
               </span>
             </div>
 
-            {/* Vertical Days List */}
             <div className="flex-1 bg-muted/20 border-2 rounded-[2.5rem] overflow-hidden flex flex-col divide-y-2 divide-muted/50 shadow-inner">
               {daysInWeek.map((day) => {
                 const dayItems = scheduledItems.filter((item) =>
@@ -100,8 +100,7 @@ export default function WeeklyView({
                       isToday(day) ? "bg-background shadow-md z-10" : "hover:bg-background/40"
                     )}
                   >
-                    {/* Day Header */}
-                    <div className="flex justify-between items-center mb-3">
+                    <div className="flex justify-between items-center mb-3 px-1">
                       <div className="flex items-baseline gap-2">
                         <span className={cn(
                           "text-lg font-black tabular-nums",
@@ -128,8 +127,7 @@ export default function WeeklyView({
                       )}
                     </div>
 
-                    {/* Day Content */}
-                    <div className="space-y-1.5 pl-7 border-l-2 border-muted-foreground/10 ml-2">
+                    <div className="space-y-2 pl-7 border-l-2 border-muted-foreground/10 ml-2">
                       {dayItems.length > 0 ? (
                         dayItems.map((item) => {
                           const itemColor = item.color || (item.tags[0] ? tagConfigs[item.tags[0]] : null)
@@ -137,11 +135,11 @@ export default function WeeklyView({
                             <div
                               key={item.id}
                               onClick={() => onItemClick(item)}
-                              className="group flex items-center justify-between gap-3 p-1.5 -ml-2 rounded-lg hover:bg-muted/50 cursor-pointer transition-all"
+                              className="group flex items-center justify-between gap-3 p-2 -ml-2 rounded-xl hover:bg-muted/50 cursor-pointer transition-all"
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <div 
-                                  className="h-2 w-2 rounded-full shrink-0" 
+                                  className="h-2.5 w-2.5 rounded-full shrink-0 shadow-sm" 
                                   style={{ backgroundColor: itemColor || 'var(--primary)' }}
                                 />
                                 <span className={cn(
@@ -151,16 +149,18 @@ export default function WeeklyView({
                                   {item.title}
                                 </span>
                               </div>
-                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pr-1" onClick={e => e.stopPropagation()}>
-                                <button
-                                  onClick={(e) => onStatusToggle(item, e)}
-                                  className={cn(
-                                    "h-4 w-4 rounded border-2 flex items-center justify-center transition-colors",
-                                    item.status === 'COMPLETED' ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"
-                                  )}
-                                >
-                                  {item.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-current rounded-sm" />}
-                                </button>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <ItemActions 
+                                  id={item.id}
+                                  status={item.status}
+                                  listId={listId}
+                                  mediaType={item.mediaType}
+                                  canEdit={canEdit}
+                                  isOwner={isOwner}
+                                  onStatusToggle={() => onStatusToggle(item)}
+                                  onDelete={() => onDeleteClick(item)}
+                                  onEdit={() => onEditClick(item)}
+                                />
                               </div>
                             </div>
                           )

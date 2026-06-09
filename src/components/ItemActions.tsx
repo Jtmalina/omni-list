@@ -48,7 +48,8 @@ export default function ItemActions({
     servarrEnabled
   )
 
-  const toggleStatus = () => {
+  const toggleStatus = (e?: any) => {
+    if (e?.stopPropagation) e.stopPropagation()
     if (!canEdit) return
     if (onStatusToggle) {
       onStatusToggle()
@@ -60,7 +61,8 @@ export default function ItemActions({
     }
   }
 
-  const handleDelete = () => {
+  const handleDelete = (e?: any) => {
+    if (e?.stopPropagation) e.stopPropagation()
     if (!canEdit) return
     if (onDelete) {
       onDelete()
@@ -73,30 +75,32 @@ export default function ItemActions({
     }
   }
 
-  const handleDownload = () => {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onEdit) onEdit()
+  }
+
+  const handleDownload = (e?: any) => {
+    if (e?.stopPropagation) e.stopPropagation()
     if (!canEdit) return
     startTransition(async () => {
       const result = await downloadMediaAction(id)
       if (result.success) {
         toast.success(result.message)
-        refresh() // Update status immediately
+        refresh() 
       } else {
         toast.error(result.error)
       }
     })
   }
 
-  const handleRemoveFromServer = (deleteFiles: boolean) => {
-    if (!isOwner || !mediaStatus?.serverId) return
-    
-    startTransition(async () => {
-      const result = await removeMediaFromServerAction(id, mediaStatus.serverId!, deleteFiles)
-      if (result.success) {
-        toast.success(result.message)
-        refresh()
-      } else {
-        toast.error(result.error)
-      }
+  const handleRefresh = (e?: any) => {
+    if (e?.stopPropagation) e.stopPropagation()
+    toast.promise(refresh(), {
+      loading: 'Updating status...',
+      success: 'Status updated',
+      error: 'Could not reach server',
     })
   }
 
@@ -131,7 +135,8 @@ export default function ItemActions({
                   size="icon"
                   className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                   title="Remove from Server"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation()
                     const deleteFiles = confirm('Do you want to delete the actual media files from your hard drive too?')
                     handleRemoveFromServer(deleteFiles)
                   }}
@@ -161,13 +166,7 @@ export default function ItemActions({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                toast.promise(refresh(), {
-                  loading: 'Updating status...',
-                  success: 'Status updated',
-                  error: 'Could not reach server',
-                })
-              }}
+              onClick={handleRefresh}
               disabled={statusLoading}
               title="Refresh Status"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -179,16 +178,18 @@ export default function ItemActions({
       )}
       
       <div className="flex items-center gap-1 ml-1 sm:ml-0">
-        <Checkbox
-          checked={status === ItemStatus.COMPLETED}
-          onCheckedChange={toggleStatus}
-          disabled={isPending || !canEdit}
-        />
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={status === ItemStatus.COMPLETED}
+            onCheckedChange={() => toggleStatus()}
+            disabled={isPending || !canEdit}
+          />
+        </div>
         {canEdit && onEdit && (
           <Button
             variant="ghost"
             size="icon"
-            onClick={onEdit}
+            onClick={handleEdit}
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
             title="Edit Item"
           >
@@ -209,4 +210,15 @@ export default function ItemActions({
       </div>
     </div>
   )
+
+  async function handleRemoveFromServer(deleteFiles: boolean) {
+    if (!isOwner || !mediaStatus?.serverId) return
+    const result = await removeMediaFromServerAction(id, mediaStatus.serverId!, deleteFiles)
+    if (result.success) {
+      toast.success(result.message)
+      refresh()
+    } else {
+      toast.error(result.error)
+    }
+  }
 }

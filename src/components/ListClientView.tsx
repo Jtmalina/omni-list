@@ -660,7 +660,7 @@ export default function ListClientView({
                           isOwner={isOwner}
                           onStatusToggle={() => handleStatusToggle(item)}
                           onDelete={() => handleItemDelete(item.id)}
-                          onEdit={() => handleItemClick(item)}
+                          onEdit={() => setSelectedItem(item)}
                         />
                       </div>
                     </div>

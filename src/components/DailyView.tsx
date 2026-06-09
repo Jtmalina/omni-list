@@ -7,6 +7,7 @@ import { Plus, X, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Item, ItemStatus, MediaMetadata } from '@prisma/client'
 import { TagBadge } from './TagBadge'
+import ItemActions from './ItemActions'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -18,9 +19,11 @@ interface DailyViewProps {
   currentDate: Date
   onAddClick: (date: Date) => void
   onItemClick: (item: ItemWithMedia) => void
-  onStatusToggle: (item: Item, e: React.MouseEvent) => void
-  onDeleteClick: (item: Item, e: React.MouseEvent) => void
+  onStatusToggle: (item: Item) => void
+  onDeleteClick: (item: Item) => void
+  onEditClick: (item: ItemWithMedia) => void
   canEdit: boolean
+  isOwner?: boolean
   tagConfigs: Record<string, string>
   isPending: boolean
 }
@@ -32,7 +35,9 @@ export default function DailyView({
   onItemClick,
   onStatusToggle,
   onDeleteClick,
+  onEditClick,
   canEdit,
+  isOwner = false,
   tagConfigs,
   isPending
 }: DailyViewProps) {
@@ -76,7 +81,7 @@ export default function DailyView({
             data-current={isSelected}
             className={cn(
               "flex-shrink-0 w-[90vw] sm:w-[350px] snap-center bg-background border-2 rounded-[2rem] flex flex-col h-[700px] overflow-hidden shadow-lg transition-all",
-              isToday(day) ? "border-primary" : "border-muted"
+              isToday(day) ? "border-primary shadow-primary/10" : "border-muted"
             )}
           >
             {/* Day Header */}
@@ -96,7 +101,7 @@ export default function DailyView({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-full hover:bg-background border"
+                  className="h-10 w-10 rounded-full hover:bg-background border shadow-sm"
                   onClick={() => onAddClick(day)}
                 >
                   <Plus className="h-4 w-4" />
@@ -108,13 +113,13 @@ export default function DailyView({
             <div className="flex-1 overflow-y-auto p-0 scrollbar-hide relative">
               {/* Hour Lines */}
               {hours.map((hour) => (
-                <div key={hour} className="flex border-b min-h-[80px] group hover:bg-muted/10 transition-colors">
-                  <div className="w-16 shrink-0 p-3 border-r bg-muted/5 flex flex-col items-center justify-start sticky left-0 z-10">
+                <div key={hour} className="flex border-b min-h-[100px] group hover:bg-muted/5 transition-colors">
+                  <div className="w-16 shrink-0 p-4 border-r bg-muted/5 flex flex-col items-center justify-start sticky left-0 z-10">
                     <span className="text-[10px] font-black tabular-nums opacity-40">
                       {format(addHours(startOfDay(day), hour), 'h a')}
                     </span>
                   </div>
-                  <div className="flex-1 relative p-2">
+                  <div className="flex-1 relative p-2 space-y-2">
                     {dayItems
                       .filter(item => {
                         const date = new Date(item.dueDate!)
@@ -127,43 +132,44 @@ export default function DailyView({
                             key={item.id}
                             onClick={() => onItemClick(item)}
                             className={cn(
-                              "p-3 rounded-xl border border-l-4 mb-2 cursor-pointer transition-all active:scale-[0.98] shadow-sm hover:shadow-md",
-                              !itemColor && "bg-background border-muted"
+                              "p-3 rounded-2xl border-2 border-l-8 cursor-pointer transition-all active:scale-[0.98] shadow-sm hover:shadow-md bg-background group/item relative",
+                              !itemColor && "border-muted"
                             )}
                             style={itemColor ? { 
-                              backgroundColor: `${itemColor}10`, 
+                              backgroundColor: `${itemColor}05`, 
                               borderLeftColor: itemColor,
                               borderColor: `${itemColor}20` 
                             } : {}}
                           >
-                            <div className="flex justify-between items-start gap-2">
+                            <div className="flex justify-between items-start gap-4">
                               <div className="flex-1 min-w-0">
                                 <h4 className={cn(
-                                  "font-bold text-xs uppercase tracking-tight truncate",
+                                  "font-black text-sm uppercase tracking-tight truncate",
                                   item.status === 'COMPLETED' && "line-through opacity-40"
                                 )}
                                 style={{ color: itemColor || 'inherit' }}>
                                   {item.title}
                                 </h4>
-                                <div className="flex flex-wrap gap-1 mt-1">
+                                <div className="flex flex-wrap gap-1 mt-1.5">
                                   {item.tags.slice(0, 2).map(tag => (
-                                    <TagBadge key={tag} name={tag} color={tagConfigs[tag]} className="text-[7px] px-1 py-0" />
+                                    <TagBadge key={tag} name={tag} color={tagConfigs[tag]} className="text-[7px] px-1.5 py-0" />
                                   ))}
                                 </div>
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onStatusToggle(item, e)
-                                }}
-                                disabled={isPending}
-                                className={cn(
-                                  "h-4 w-4 rounded-full border flex items-center justify-center transition-all",
-                                  item.status === 'COMPLETED' ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30"
-                                )}
-                              >
-                                {item.status === 'COMPLETED' && <div className="w-1 h-1 bg-current rounded-full" />}
-                              </button>
+                              
+                              <div className="opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                <ItemActions 
+                                  id={item.id}
+                                  status={item.status}
+                                  listId={listId}
+                                  mediaType={item.mediaType}
+                                  canEdit={canEdit}
+                                  isOwner={isOwner}
+                                  onStatusToggle={() => onStatusToggle(item)}
+                                  onDelete={() => onDeleteClick(item)}
+                                  onEdit={() => onEditClick(item)}
+                                />
+                              </div>
                             </div>
                           </div>
                         )
