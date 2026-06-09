@@ -16,7 +16,7 @@ const features = [
   {
     icon: LayoutList,
     title: 'Multi-type Lists',
-    description: 'Movies, TV shows, games, books — every medium in one place. Create as many lists as you need.',
+    description: 'Movies, TV shows, books, games, or just daily tasks — all in one place. Create as many lists as you need.',
     color: 'text-violet-400',
     bg: 'bg-violet-500/10',
   },
@@ -36,8 +36,8 @@ const features = [
   },
   {
     icon: CalendarDays,
-    title: 'Weekly View',
-    description: 'Plan your week. Organize what you\'re watching or playing day by day.',
+    title: 'Calendar View',
+    description: 'Plan your week. Organize your media and your routine day by day.',
     color: 'text-amber-400',
     bg: 'bg-amber-500/10',
   },
