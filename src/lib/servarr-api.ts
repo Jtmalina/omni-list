@@ -1,3 +1,43 @@
+import https from 'node:https'
+import http from 'node:http'
+
+// Allow self-signed / internal TLS certs for user-hosted Radarr/Sonarr servers
+// (Tailscale MagicDNS, local IPs, home-lab certs, etc.)
+// Native fetch doesn't support custom agents, so we use node:https directly.
+function servarrFetch(url: string, init?: RequestInit): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const isHttps = parsed.protocol === 'https:'
+    const options: http.RequestOptions = {
+      hostname: parsed.hostname,
+      port: parsed.port || (isHttps ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: (init?.method as string) || 'GET',
+      headers: init?.headers as Record<string, string>,
+      ...(isHttps && { rejectUnauthorized: false }),
+    }
+
+    const transport = isHttps ? https : http
+    const req = (transport as typeof https).request(options as https.RequestOptions, (res) => {
+      const chunks: Buffer[] = []
+      res.on('data', (chunk: Buffer) => chunks.push(chunk))
+      res.on('end', () => {
+        const body = Buffer.concat(chunks)
+        resolve(new Response(body, {
+          status: res.statusCode ?? 200,
+          headers: res.headers as Record<string, string>,
+        }))
+      })
+    })
+
+    req.on('error', reject)
+
+    if (init?.body) {
+      req.write(init.body)
+    }
+    req.end()
+  })
+}
 
 export interface ServarrConfig {
   radarrUrl?: string | null
@@ -24,12 +64,12 @@ export async function addMovieToRadarr(movie: {
     throw new Error('Radarr configuration missing in your settings');
   }
 
-  const response = await fetch(`${baseUrl}/api/v3/movie`, {
+  const response = await servarrFetch(`${baseUrl}/api/v3/movie`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Api-Key': apiKey,
-      'User-Agent': 'OmniList-App/1.0', // Helps bypass some bot filters
+      'User-Agent': 'OmniList-App/1.0',
     },
     body: JSON.stringify({
       title: movie.title,
@@ -65,7 +105,7 @@ export async function addSeriesToSonarr(series: {
     throw new Error('Sonarr configuration missing in your settings');
   }
 
-  const response = await fetch(`${baseUrl}/api/v3/series`, {
+  const response = await servarrFetch(`${baseUrl}/api/v3/series`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -100,7 +140,7 @@ export async function deleteMovieFromRadarr(radarrId: number, deleteFiles: boole
 
   if (!baseUrl || !apiKey) throw new Error('Radarr configuration missing');
 
-  const response = await fetch(`${baseUrl}/api/v3/movie/${radarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
+  const response = await servarrFetch(`${baseUrl}/api/v3/movie/${radarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
     method: 'DELETE',
     headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
   });
@@ -119,7 +159,7 @@ export async function deleteSeriesFromSonarr(sonarrId: number, deleteFiles: bool
 
   if (!baseUrl || !apiKey) throw new Error('Sonarr configuration missing');
 
-  const response = await fetch(`${baseUrl}/api/v3/series/${sonarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
+  const response = await servarrFetch(`${baseUrl}/api/v3/series/${sonarrId}?deleteFiles=${deleteFiles}&addImportListExclusion=true`, {
     method: 'DELETE',
     headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
   });
@@ -141,7 +181,7 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
 
   try {
     // 1. Check if it's in the library
-    const lookupResponse = await fetch(`${baseUrl}/api/v3/movie/lookup/tmdb?tmdbId=${tmdbId}`, {
+    const lookupResponse = await servarrFetch(`${baseUrl}/api/v3/movie/lookup/tmdb?tmdbId=${tmdbId}`, {
       headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
     });
     
@@ -153,10 +193,10 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
     const serverId = movieInfo.id || null;
 
     // 2. Check if it's in the download queue
-    const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
+    const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
       headers: { 'User-Agent': 'OmniList-App/1.0' }
     });
-    
+
     let progress = null;
     if (queueResponse.ok) {
       const queueData = await queueResponse.json();
@@ -190,7 +230,7 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
 
   try {
     // 1. Check if it's in the library
-    const lookupResponse = await fetch(`${baseUrl}/api/v3/series/lookup?term=tvdb:${tvdbId}`, {
+    const lookupResponse = await servarrFetch(`${baseUrl}/api/v3/series/lookup?term=tvdb:${tvdbId}`, {
       headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
     });
     
@@ -206,14 +246,14 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
     const serverId = seriesInfo.id || null;
 
     // 2. Check queue
-    const queueResponse = await fetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
+    const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
       headers: { 'User-Agent': 'OmniList-App/1.0' }
     });
-    
+
     let progress = null;
     if (queueResponse.ok) {
       const queueData = await queueResponse.json();
-      const activeDownload = queueData.records?.find((r: any) => 
+      const activeDownload = queueData.records?.find((r: any) =>
         (r.seriesId && r.seriesId === seriesInfo.id) ||
         (r.series?.tvdbId === tvdbId)
       );

@@ -244,6 +244,12 @@ export async function downloadMediaAction(itemId: string) {
     }
   } catch (error: any) {
     console.error('Download action error:', error)
+    const cause = error?.cause
+    const isNetworkError = cause?.code === 'ECONNRESET' || cause?.code === 'ECONNREFUSED' || cause?.code === 'ETIMEDOUT' || error?.message === 'fetch failed'
+    if (isNetworkError) {
+      const host = cause?.host || 'your server'
+      return { success: false, error: `Could not reach ${host}. Check that your Sonarr/Radarr URL is correct and the server is reachable. If using Tailscale, try the local IP (e.g. http://192.168.x.x:8989) or enable HTTPS certs on the machine.` }
+    }
     return { success: false, error: error.message || 'Failed to trigger download' }
   }
 
