@@ -99,6 +99,7 @@ export default function ListClientView({
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
+  const [openItemInEditMode, setOpenItemInEditMode] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
 
   const tagConfigsMap = useMemo(() => {
@@ -217,8 +218,14 @@ export default function ListClientView({
       const type = item.mediaType === 'MOVIE' ? 'movie' : item.mediaType === 'SHOW' ? 'tv' : 'game'
       router.push(`/media/${type}/${item.media.externalId}`)
     } else {
+      setOpenItemInEditMode(false)
       setSelectedItem(item)
     }
+  }
+
+  const handleItemEdit = (item: ItemWithMedia) => {
+    setOpenItemInEditMode(true)
+    setSelectedItem(item)
   }
 
   if (isCalendarList) {
@@ -263,13 +270,14 @@ export default function ListClientView({
           item={selectedItem}
           listId={list.id}
           isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => { setSelectedItem(null); setOpenItemInEditMode(false) }}
           canEdit={canEdit}
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
           allExistingTags={allTags}
           onStatusToggle={handleStatusToggle}
           onItemDelete={handleItemDelete}
+          startInEditMode={openItemInEditMode}
         />
       </>
     )
@@ -283,13 +291,14 @@ export default function ListClientView({
           item={selectedItem}
           listId={list.id}
           isOpen={!!selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => { setSelectedItem(null); setOpenItemInEditMode(false) }}
           canEdit={canEdit}
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
           allExistingTags={allTags}
           onStatusToggle={handleStatusToggle}
           onItemDelete={handleItemDelete}
+          startInEditMode={openItemInEditMode}
         />
         <div className="flex justify-between items-start">
           <div>
@@ -375,7 +384,7 @@ export default function ListClientView({
                         isOwner={isOwner}
                         onStatusToggle={() => handleStatusToggle(item)}
                         onDelete={() => handleItemDelete(item.id)}
-                        onEdit={() => setSelectedItem(item)}
+                        onEdit={() => handleItemEdit(item)}
                       />
                     </div>
 
@@ -434,7 +443,7 @@ export default function ListClientView({
         item={selectedItem}
         listId={list.id}
         isOpen={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
+        onClose={() => { setSelectedItem(null); setOpenItemInEditMode(false) }}
         isRadarrEnabled={isRadarrEnabled}
         isSonarrEnabled={isSonarrEnabled}
         canEdit={canEdit}
@@ -443,6 +452,7 @@ export default function ListClientView({
         allExistingTags={allTags}
         onStatusToggle={handleStatusToggle}
         onItemDelete={handleItemDelete}
+        startInEditMode={openItemInEditMode}
       />
       {/* Sidebar */}
       <aside 
@@ -728,7 +738,7 @@ export default function ListClientView({
                         hideCheckbox
                         onStatusToggle={() => handleStatusToggle(item)}
                         onDelete={() => handleItemDelete(item.id)}
-                        onEdit={() => setSelectedItem(item)}
+                        onEdit={() => handleItemEdit(item)}
                       />
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
@@ -840,7 +850,7 @@ export default function ListClientView({
                             isOwner={isOwner}
                             onStatusToggle={() => handleStatusToggle(item)}
                             onDelete={() => handleItemDelete(item.id)}
-                            onEdit={() => setSelectedItem(item)}
+                            onEdit={() => handleItemEdit(item)}
                           />
                         </div>
                       </div>
