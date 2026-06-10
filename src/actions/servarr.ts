@@ -226,21 +226,20 @@ export async function downloadMediaAction(itemId: string) {
 
   try {
     if (item.mediaType === MediaType.MOVIE) {
-      await addMovieToRadarr({
+      const result = await addMovieToRadarr({
         tmdbId: parseInt(externalId),
         title,
         year: item.dueDate ? new Date(item.dueDate).getFullYear() : new Date().getFullYear(),
       }, config)
-      return { success: true, message: `Sent ${title} to Radarr` }
+      const msg = result?.alreadyExists ? `${title} is already in Radarr` : `Sent ${title} to Radarr`
+      return { success: true, message: msg }
     } else if (item.mediaType === MediaType.SHOW) {
       const tvdbId = await getTvdbIdFromTmdb(externalId)
       if (!tvdbId) throw new Error('Could not find TVDB ID for this show')
 
-      await addSeriesToSonarr({
-        tvdbId,
-        title,
-      }, config)
-      return { success: true, message: `Sent ${title} to Sonarr` }
+      const result = await addSeriesToSonarr({ tvdbId, title }, config)
+      const msg = result?.alreadyExists ? `${title} is already in Sonarr` : `Sent ${title} to Sonarr`
+      return { success: true, message: msg }
     }
   } catch (error: any) {
     console.error('Download action error:', error)

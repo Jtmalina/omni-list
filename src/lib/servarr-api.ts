@@ -85,8 +85,12 @@ export async function addMovieToRadarr(movie: {
   });
 
   if (!response.ok) {
+    if (response.status === 409) {
+      // Already in Radarr — treat as success
+      return { alreadyExists: true }
+    }
     const error = await response.text();
-    throw new Error(`Radarr error: ${error}`);
+    throw new Error(`Radarr error (${response.status}): ${error || 'no details returned'}`);
   }
 
   return await response.json();
@@ -127,8 +131,12 @@ export async function addSeriesToSonarr(series: {
   });
 
   if (!response.ok) {
+    if (response.status === 409) {
+      // Already in Sonarr — treat as success
+      return { alreadyExists: true }
+    }
     const error = await response.text();
-    throw new Error(`Sonarr error: ${error}`);
+    throw new Error(`Sonarr error (${response.status}): ${error || 'no details returned'}`);
   }
 
   return await response.json();
