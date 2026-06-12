@@ -15,25 +15,28 @@ export default async function ListPage({ params }: { params: Promise<{ id: strin
   const { id } = await params
   const session = await auth()
   
-  const [list, config] = await Promise.all([
-    prisma.list.findUnique({
-      where: { id },
-      include: { tagConfigs: true }
-    }),
-    session?.user?.id ? prisma.servarrConfig.findUnique({
-      where: { userId: session.user.id }
-    }) : null
-  ])
+  const list = await prisma.list.findUnique({
+    where: { id },
+    include: {
+      tagConfigs: true,
+      user: { include: { servarrConfig: true } }, // owner's config for shared users
+    }
+  })
 
   if (!list) notFound()
 
-  const items = await getItems(id)
+  const [items, listAccess] = await Promise.all([
+    getItems(id),
+    session?.user?.id ? prisma.listAccess.findUnique({
+      where: { listId_userId: { listId: id, userId: session.user.id } }
+    }) : null,
+  ])
 
   const isMediaList = list.type === 'MEDIA'
   const isOwner = list.userId === session?.user?.id
-  const accessLevel = config ? 'OWNER' : (await prisma.listAccess.findUnique({
-    where: { listId_userId: { listId: id, userId: session?.user?.id || '' } }
-  }))?.accessLevel || null
+  const accessLevel = isOwner ? 'OWNER' : listAccess?.accessLevel || null
+  // Always use the list owner's Servarr config so shared users see download buttons
+  const config = list.user.servarrConfig
 
   return (
     <main className={cn(

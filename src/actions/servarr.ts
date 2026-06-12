@@ -160,8 +160,8 @@ export async function downloadMediaAction(itemId: string) {
 
   if (!item) throw new Error('Item not found')
 
-  // Must have at least edit access to the list to trigger a download
-  await verifyListAccess(item.listId, 'EDIT')
+  // Must have at least view access to the list to trigger a download
+  await verifyListAccess(item.listId, 'VIEW')
 
   if (!config) {
     throw new Error('The list owner has not configured Radarr/Sonarr. Ask them to set it up in their settings.')
