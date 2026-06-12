@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo, useOptimistic, useTransition } from 'react'
+import { useState, useEffect, useMemo, useOptimistic, useTransition, useRef } from 'react'
 import { Item, ItemStatus, ListType, MediaMetadata, MediaType } from '@prisma/client'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import AddItemDialog from '@/components/AddItemDialog'
 import ItemActions from '@/components/ItemActions'
-import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X, LayoutList, Check } from 'lucide-react'
+import { Star, Film, Tv, Gamepad2, LayoutGrid, MoreHorizontal, ChevronRight, PanelLeftClose, PanelLeftOpen, Search, X, LayoutList, Check, Plus, Loader2, Telescope } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Image from 'next/image'
 import CalendarView from './CalendarView'
@@ -16,6 +16,8 @@ import ItemDetailsDialog from './ItemDetailsDialog'
 import { updateItemStatus, deleteItem } from '@/actions/item'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 import { useRouter } from 'next/navigation'
+import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
+import { searchMediaAction, searchGamesAction } from '@/actions/media'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -56,7 +58,7 @@ interface ListClientViewProps {
   accessLevel?: 'OWNER' | 'VIEW' | 'EDIT' | null
 }
 
-type FilterCategory = 'ALL' | 'MOVIE' | 'SHOW' | 'GAME' | 'OTHER'
+type FilterCategory = 'ALL' | 'MOVIE' | 'SHOW' | 'GAME' | 'OTHER' | 'DISCOVER'
 
 export default function ListClientView({ 
   list, 
@@ -101,6 +103,15 @@ export default function ListClientView({
   const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
   const [openItemInEditMode, setOpenItemInEditMode] = useState(false)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
+
+  // Discover tab
+  const [discoverMode, setDiscoverMode] = useState<'media' | 'game'>('media')
+  const [discoverQuery, setDiscoverQuery] = useState('')
+  const [discoverResults, setDiscoverResults] = useState<(MediaSearchResult | GameSearchResult)[]>([])
+  const [discoverLoading, setDiscoverLoading] = useState(false)
+  const [quickAddMedia, setQuickAddMedia] = useState<MediaSearchResult | null>(null)
+  const [quickAddGame, setQuickAddGame] = useState<GameSearchResult | null>(null)
+  const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const tagConfigsMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -162,6 +173,7 @@ export default function ListClientView({
     { id: 'MOVIE', label: 'Movies', icon: Film },
     { id: 'SHOW', label: 'TV Shows', icon: Tv },
     { id: 'GAME', label: 'Games', icon: Gamepad2 },
+    { id: 'DISCOVER', label: 'Discover', icon: Telescope },
     { id: 'OTHER', label: 'Other', icon: MoreHorizontal },
   ]
 
@@ -226,6 +238,23 @@ export default function ListClientView({
   const handleItemEdit = (item: ItemWithMedia) => {
     setOpenItemInEditMode(true)
     setSelectedItem(item)
+  }
+
+  const handleDiscoverSearch = (query: string, mode: 'media' | 'game') => {
+    setDiscoverQuery(query)
+    setDiscoverResults([])
+    if (discoverTimer.current) clearTimeout(discoverTimer.current)
+    if (!query.trim()) return
+    discoverTimer.current = setTimeout(async () => {
+      setDiscoverLoading(true)
+      try {
+        const results = mode === 'media'
+          ? await searchMediaAction(query)
+          : await searchGamesAction(query)
+        setDiscoverResults(results.slice(0, 20))
+      } catch {}
+      finally { setDiscoverLoading(false) }
+    }, 350)
   }
 
   if (isCalendarList) {
@@ -558,23 +587,36 @@ export default function ListClientView({
           "pt-6 hidden lg:block transition-all",
           isSidebarCollapsed ? "lg:pt-4 lg:flex lg:justify-center" : ""
         )}>
-          {canEdit && (
-            <AddItemDialog 
+          {canEdit && activeCategory !== 'DISCOVER' && (
+            <AddItemDialog
               key={selectedDate ? `date-${selectedDate.getTime()}` : 'header'}
-              listId={list.id} 
-              initialDate={selectedDate} 
+              listId={list.id}
+              initialDate={selectedDate}
               onOpenChange={handleOpenChange}
               tagConfigs={tagConfigsMap}
               allExistingTags={allTags}
             />
           )}
         </div>
+
+        {/* Hidden AddItemDialog triggered by Discover quick-add */}
+        <AddItemDialog
+          key={quickAddMedia?.id ?? quickAddGame?.id ?? 'discover-add'}
+          listId={list.id}
+          showTrigger={false}
+          isManualOpen={!!(quickAddMedia || quickAddGame)}
+          preselectedMedia={quickAddMedia ?? undefined}
+          preselectedGame={quickAddGame ?? undefined}
+          tagConfigs={tagConfigsMap}
+          allExistingTags={allTags}
+          onClose={() => { setQuickAddMedia(null); setQuickAddGame(null) }}
+        />
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 w-full min-w-0">
         {/* Search Bar + Layout Toggle */}
-        <div className="mb-8 flex items-center gap-3">
+        {activeCategory !== 'DISCOVER' && <div className="mb-8 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -615,10 +657,132 @@ export default function ListClientView({
               <LayoutList className="h-4 w-4" />
             </button>
           </div>
-        </div>
+        </div>}
+
+        {/* ── Discover tab ─────────────────────────────────────────────── */}
+        {activeCategory === 'DISCOVER' && (
+          <div className="space-y-6">
+            {/* Mode toggle + search */}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1 p-1 bg-muted/40 rounded-xl shrink-0">
+                <button
+                  onClick={() => { setDiscoverMode('media'); setDiscoverQuery(''); setDiscoverResults([]) }}
+                  className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all',
+                    discoverMode === 'media' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                >
+                  <Film className="h-4 w-4" /> Movie / TV
+                </button>
+                <button
+                  onClick={() => { setDiscoverMode('game'); setDiscoverQuery(''); setDiscoverResults([]) }}
+                  className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition-all',
+                    discoverMode === 'game' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                >
+                  <Gamepad2 className="h-4 w-4" /> Games
+                </button>
+              </div>
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder={discoverMode === 'media' ? 'Search movies & TV shows…' : 'Search games…'}
+                  value={discoverQuery}
+                  onChange={(e) => handleDiscoverSearch(e.target.value, discoverMode)}
+                  className="pl-10 pr-10 h-11 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary rounded-xl"
+                  autoFocus
+                />
+                {discoverLoading && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                {discoverQuery && !discoverLoading && (
+                  <button onClick={() => { setDiscoverQuery(''); setDiscoverResults([]) }} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-full">
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Empty state */}
+            {!discoverQuery && (
+              <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                <Telescope className="h-12 w-12 mb-3" />
+                <p className="text-2xl font-black uppercase">Discover</p>
+                <p className="font-mono text-sm">Search for something to add</p>
+              </div>
+            )}
+
+            {/* Results grid — same poster style as the main list */}
+            {discoverResults.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                {discoverResults.map((result) => {
+                  const r = result as any
+                  const isGame = discoverMode === 'game'
+                  const year = r.releaseDate ? new Date(r.releaseDate).getFullYear() : null
+                  const rating = isGame ? r.rating : r.voteAverage
+                  return (
+                    <div
+                      key={r.id}
+                      className="group relative cursor-default rounded-xl overflow-hidden border-2 border-transparent hover:border-primary/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+                    >
+                      {/* Poster */}
+                      <div className="relative aspect-[2/3] bg-muted">
+                        {r.posterPath ? (
+                          <Image
+                            src={r.posterPath}
+                            alt={r.title}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            {isGame ? <Gamepad2 className="h-10 w-10 opacity-20" /> : <Film className="h-10 w-10 opacity-20" />}
+                          </div>
+                        )}
+
+                        {/* Hover overlay — description + rating */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col justify-end p-3 gap-1">
+                          <p className="text-white text-[11px] leading-relaxed line-clamp-4 italic">
+                            {r.overview || ''}
+                          </p>
+                          {rating > 0 && (
+                            <div className="flex items-center gap-1 text-yellow-400 text-xs font-bold">
+                              <Star className="h-3 w-3 fill-current" />
+                              {rating.toFixed(1)}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Quick-add button — centre of poster on hover */}
+                        {canEdit && (
+                          <button
+                            onClick={() => isGame ? setQuickAddGame(result as GameSearchResult) : setQuickAddMedia(result as MediaSearchResult)}
+                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                            title={`Add ${r.title}`}
+                          >
+                            <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl">
+                              <Plus className="h-6 w-6" />
+                            </div>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Title + meta */}
+                      <div className="p-2 space-y-0.5">
+                        <p className="text-xs font-bold leading-tight line-clamp-2">{r.title}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {year ?? '—'}
+                          {!isGame && r.mediaType ? ` · ${r.mediaType}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Grid view */}
-        {viewMode === 'grid' && (
+        {activeCategory !== 'DISCOVER' && viewMode === 'grid' && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {filteredItems.map((item) => {
               const isGame = item.mediaType === 'GAME'
@@ -767,7 +931,7 @@ export default function ListClientView({
         )}
 
         {/* List view (original) */}
-        {viewMode === 'list' && (
+        {activeCategory !== 'DISCOVER' && viewMode === 'list' && (
           <div className="space-y-6">
             {filteredItems.map((item) => {
               const isGame = item.mediaType === 'GAME'

@@ -134,14 +134,12 @@ export default function AddItemDialog({
     setSelectedMedia(result)
     setTitle(result.title)
     setDescription(result.overview)
-    if (result.releaseDate) setDueDate(result.releaseDate)
   }
 
   const handleGameSelect = async (result: GameSearchResult) => {
     setSelectedGame(result)
     setTitle(result.title)
     setDescription(result.overview) // genres as placeholder while details load
-    if (result.releaseDate) setDueDate(result.releaseDate)
     setFetchingDetails(true)
     const details = await fetchGameDetailsAction(result.id)
     setFetchingDetails(false)
@@ -401,6 +399,7 @@ export default function AddItemDialog({
                   id="dueDate"
                   type="date"
                   value={dueDate}
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setDueDate(e.target.value)}
                 />
               </div>
