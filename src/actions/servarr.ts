@@ -74,41 +74,44 @@ export async function saveServarrConfigAction(data: {
   return { success: true }
 }
 
+// Returns the list owner's decrypted Servarr config for a given item.
+// This lets shared-list members trigger downloads/status checks using the
+// owner's server config without ever seeing the API keys themselves.
+async function getOwnerConfigForItem(itemId: string) {
+  const item = await prisma.item.findUnique({
+    where: { id: itemId },
+    include: { media: true, list: { include: { user: { include: { servarrConfig: true } } } } },
+  })
+  if (!item) return { item: null, config: null }
+
+  const ownerConfig = item.list.user.servarrConfig
+  if (!ownerConfig) return { item, config: null }
+
+  const config = {
+    ...ownerConfig,
+    radarrApiKey: ownerConfig.radarrApiKey ? decrypt(ownerConfig.radarrApiKey) : null,
+    sonarrApiKey: ownerConfig.sonarrApiKey ? decrypt(ownerConfig.sonarrApiKey) : null,
+  }
+  return { item, config }
+}
+
 export async function getMediaStatusAction(itemId: string) {
   const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null }
-  
+
   const session = await auth()
   if (!session?.user?.id) return defaultStatus
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { servarrConfig: true },
-  })
-
-  if (!user?.servarrConfig) return defaultStatus
-
-  const item = await prisma.item.findUnique({
-    where: { id: itemId },
-    include: {
-      media: true,
-      list: true,
-    },
-  })
-
+  // Security check: must have at least view access to the list
+  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { listId: true, media: true, mediaType: true } })
   if (!item || !item.media?.externalId) return defaultStatus
-
-  // Security check: must be owner or have at least view access
   try {
     await verifyListAccess(item.listId, 'VIEW')
   } catch (e) {
     return defaultStatus
   }
 
-  const config = {
-    ...user.servarrConfig,
-    radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
-    sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
-  }
+  const { config } = await getOwnerConfigForItem(itemId)
+  if (!config) return defaultStatus
 
   const externalId = item.media.externalId
 
@@ -127,30 +130,11 @@ export async function removeMediaFromServerAction(itemId: string, serverId: numb
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { servarrConfig: true },
-  })
-
-  if (!user?.servarrConfig) {
-    throw new Error('Please configure your Radarr/Sonarr settings first.')
-  }
-
-  const item = await prisma.item.findUnique({
-    where: { id: itemId },
-    include: { list: true }
-  })
-
+  // Only the list owner can remove from server
+  const { item, config } = await getOwnerConfigForItem(itemId)
   if (!item) throw new Error('Item not found')
-  
-  // Security check: must be owner to delete from server
   await verifyListAccess(item.listId, 'OWNER')
-
-  const config = {
-    ...user.servarrConfig,
-    radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
-    sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
-  }
+  if (!config) throw new Error('List owner has not configured Radarr/Sonarr.')
 
   try {
     if (item.mediaType === MediaType.MOVIE) {
@@ -172,44 +156,22 @@ export async function downloadMediaAction(itemId: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { servarrConfig: true },
-  })
+  const { item, config } = await getOwnerConfigForItem(itemId)
 
-  if (!user?.servarrConfig) {
-    throw new Error('Please configure your Radarr/Sonarr settings first.')
-  }
+  if (!item) throw new Error('Item not found')
 
-  // Decrypt keys before use with error handling
-  let config: any
-  try {
-    config = {
-      ...user.servarrConfig,
-      radarrApiKey: user.servarrConfig.radarrApiKey ? decrypt(user.servarrConfig.radarrApiKey) : null,
-      sonarrApiKey: user.servarrConfig.sonarrApiKey ? decrypt(user.servarrConfig.sonarrApiKey) : null,
-    }
-  } catch (error: any) {
-    throw new Error(error.message || 'Decryption failed. Please re-save your settings in the gear icon menu.')
-  }
+  // Must have at least edit access to the list to trigger a download
+  await verifyListAccess(item.listId, 'EDIT')
 
-  const item = await prisma.item.findUnique({
-    where: { id: itemId },
-    include: {
-      media: true,
-      list: true,
-    },
-  })
-
-  if (!item || item.list.userId !== session.user.id) {
-    throw new Error('Unauthorized or item not found')
+  if (!config) {
+    throw new Error('The list owner has not configured Radarr/Sonarr. Ask them to set it up in their settings.')
   }
 
   if (item.mediaType === MediaType.MOVIE && !config.radarrApiKey) {
-    throw new Error('Radarr API Key is missing. Please update your settings.')
+    throw new Error('Radarr API Key is missing from the list owner\'s settings.')
   }
   if (item.mediaType === MediaType.SHOW && !config.sonarrApiKey) {
-    throw new Error('Sonarr API Key is missing. Please update your settings.')
+    throw new Error('Sonarr API Key is missing from the list owner\'s settings.')
   }
 
   if (item.type !== 'MEDIA' || !item.media?.externalId) {
