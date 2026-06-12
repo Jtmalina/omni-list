@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { TagBadge } from './TagBadge'
 import ItemDetailsDialog from './ItemDetailsDialog'
 import { updateItemStatus, deleteItem } from '@/actions/item'
+import { renameList } from '@/actions/list'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 import { useRouter } from 'next/navigation'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
@@ -102,6 +103,8 @@ export default function ListClientView({
   const [selectedColors, setSelectedColors] = useState<string[]>([])
   const [selectedItem, setSelectedItem] = useState<ItemWithMedia | null>(null)
   const [openItemInEditMode, setOpenItemInEditMode] = useState(false)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitleValue, setEditTitleValue] = useState(list.title)
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid')
 
   // Discover tab
@@ -495,7 +498,33 @@ export default function ListClientView({
             "transition-all duration-300",
             isSidebarCollapsed ? "lg:opacity-0 lg:w-0 overflow-hidden" : "lg:opacity-100 lg:w-auto"
           )}>
-            <h1 className="text-3xl font-black uppercase tracking-tighter mb-1 whitespace-nowrap">{list.title}</h1>
+            {isEditingTitle ? (
+              <input
+                autoFocus
+                value={editTitleValue}
+                onChange={(e) => setEditTitleValue(e.target.value)}
+                onBlur={async () => {
+                  setIsEditingTitle(false)
+                  const trimmed = editTitleValue.trim()
+                  if (trimmed && trimmed !== list.title) await renameList(list.id, trimmed)
+                  else setEditTitleValue(list.title)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                  if (e.key === 'Escape') { setEditTitleValue(list.title); setIsEditingTitle(false) }
+                }}
+                className="text-3xl font-black uppercase tracking-tighter mb-1 bg-transparent border-b-2 border-primary outline-none w-full"
+              />
+            ) : (
+              <h1
+                className={cn(
+                  "text-3xl font-black uppercase tracking-tighter mb-1 whitespace-nowrap",
+                  isOwner && "cursor-pointer hover:opacity-70 transition-opacity"
+                )}
+                onClick={() => isOwner && setIsEditingTitle(true)}
+                title={isOwner ? "Click to rename" : undefined}
+              >{list.title}</h1>
+            )}
             <p className="text-xs text-muted-foreground font-mono uppercase font-bold tracking-widest whitespace-nowrap">
               {filteredItems.length} of {optimisticItems.length} items
             </p>

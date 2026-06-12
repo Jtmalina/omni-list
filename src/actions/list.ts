@@ -72,6 +72,12 @@ export async function upsertTagConfig(listId: string, name: string, color: strin
   revalidatePath(`/list/${listId}`)
 }
 
+export async function renameList(id: string, title: string) {
+  await verifyListAccess(id, 'OWNER')
+  await prisma.list.update({ where: { id }, data: { title: title.trim() } })
+  revalidatePath('/')
+}
+
 export async function deleteList(id: string) {
   // Only owner can delete a list
   await verifyListAccess(id, 'OWNER')
