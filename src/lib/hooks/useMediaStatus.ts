@@ -13,17 +13,19 @@ export interface MediaStatus {
 export function useMediaStatus(itemId: string, mediaType: string | null | undefined, enabled: boolean) {
   const [status, setStatus] = useState<MediaStatus | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchStatus = async () => {
     if (!enabled || (mediaType !== 'MOVIE' && mediaType !== 'SHOW')) return
-    
+
+    setLoading(true)
+    setError(null)
     try {
       const result = await getMediaStatusAction(itemId)
-      if (result) {
-        setStatus(result)
-      }
-    } catch (error) {
-      console.error('Error fetching media status:', error)
+      if (result) setStatus(result)
+    } catch (err: any) {
+      console.error('Error fetching media status:', err)
+      setError(err?.message || 'Could not reach server')
     } finally {
       setLoading(false)
     }
@@ -32,16 +34,15 @@ export function useMediaStatus(itemId: string, mediaType: string | null | undefi
   useEffect(() => {
     if (!enabled) return
 
-    setLoading(true)
     fetchStatus()
 
-    // Poll for status if it's currently downloading
+    // Only keep polling if something is actively downloading
     const interval = setInterval(() => {
-      fetchStatus()
-    }, 15000) // Poll every 15 seconds
+      if (status?.progress !== null) fetchStatus()
+    }, 15000)
 
     return () => clearInterval(interval)
   }, [itemId, enabled, mediaType])
 
-  return { status, loading, refresh: fetchStatus }
+  return { status, loading, error, refresh: fetchStatus }
 }

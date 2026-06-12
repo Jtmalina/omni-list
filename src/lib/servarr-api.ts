@@ -187,46 +187,42 @@ export async function getMovieStatus(tmdbId: number, config: ServarrConfig) {
   const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null };
   if (!baseUrl || !apiKey) return defaultStatus;
 
-  try {
-    // 1. Check if it's in the library
-    const lookupResponse = await servarrFetch(`${baseUrl}/api/v3/movie/lookup/tmdb?tmdbId=${tmdbId}`, {
-      headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
-    });
-    
-    if (!lookupResponse.ok) return defaultStatus;
-    const movieInfo = await lookupResponse.json();
-    
-    const inLibrary = !!(movieInfo.id && movieInfo.id > 0);
-    const hasFile = !!movieInfo.hasFile;
-    const serverId = movieInfo.id || null;
+  // 1. Check library — GET /api/v3/movie returns all movies; filter by tmdbId.
+  //    More reliable than the lookup endpoint which may 404 for non-library titles.
+  const moviesResponse = await servarrFetch(`${baseUrl}/api/v3/movie`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
 
-    // 2. Check if it's in the download queue
-    const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
-      headers: { 'User-Agent': 'OmniList-App/1.0' }
-    });
-
-    let progress = null;
-    if (queueResponse.ok) {
-      const queueData = await queueResponse.json();
-      // Look for a record that matches this movie
-      const activeDownload = queueData.records?.find((r: any) => 
-        (r.movieId && r.movieId === movieInfo.id) || 
-        (r.movie?.tmdbId === tmdbId) ||
-        (r.title?.toLowerCase().includes(movieInfo.title?.toLowerCase()))
-      );
-
-      if (activeDownload) {
-        progress = activeDownload.size > 0 
-          ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
-          : 0;
-      }
-    }
-
-    return { inLibrary, hasFile, progress, serverId };
-  } catch (error) {
-    console.error('Radarr status fetch failed:', error);
-    return defaultStatus;
+  if (!moviesResponse.ok) {
+    throw new Error(`Radarr responded ${moviesResponse.status} when checking library`)
   }
+
+  const allMovies: any[] = await moviesResponse.json();
+  const movieInfo = allMovies.find((m: any) => m.tmdbId === tmdbId);
+
+  const inLibrary = !!movieInfo;
+  const hasFile = !!movieInfo?.hasFile;
+  const serverId = movieInfo?.id ?? null;
+
+  // 2. Check download queue
+  const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+
+  let progress = null;
+  if (queueResponse.ok) {
+    const queueData = await queueResponse.json();
+    const activeDownload = queueData.records?.find((r: any) =>
+      r.movie?.tmdbId === tmdbId || (serverId && r.movieId === serverId)
+    );
+    if (activeDownload) {
+      progress = activeDownload.size > 0
+        ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
+        : 0;
+    }
+  }
+
+  return { inLibrary, hasFile, progress, serverId };
 }
 
 export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
@@ -236,48 +232,44 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
   const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null };
   if (!baseUrl || !apiKey) return defaultStatus;
 
-  try {
-    // 1. Check if it's in the library
-    const lookupResponse = await servarrFetch(`${baseUrl}/api/v3/series/lookup?term=tvdb:${tvdbId}`, {
-      headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
-    });
-    
-    if (!lookupResponse.ok) return defaultStatus;
-    const lookupResults = await lookupResponse.json();
-    const seriesInfo = lookupResults[0]; 
-    
-    if (!seriesInfo) return defaultStatus;
+  // 1. Check library — GET /api/v3/series returns all series; filter by tvdbId.
+  const seriesResponse = await servarrFetch(`${baseUrl}/api/v3/series`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
 
-    const inLibrary = !!(seriesInfo.id && seriesInfo.id > 0);
-    const statistics = seriesInfo.statistics;
-    const hasFile = statistics ? (statistics.episodeFileCount >= statistics.totalEpisodeCount && statistics.totalEpisodeCount > 0) : false;
-    const serverId = seriesInfo.id || null;
-
-    // 2. Check queue
-    const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue?apikey=${apiKey}`, {
-      headers: { 'User-Agent': 'OmniList-App/1.0' }
-    });
-
-    let progress = null;
-    if (queueResponse.ok) {
-      const queueData = await queueResponse.json();
-      const activeDownload = queueData.records?.find((r: any) =>
-        (r.seriesId && r.seriesId === seriesInfo.id) ||
-        (r.series?.tvdbId === tvdbId)
-      );
-      
-      if (activeDownload) {
-        progress = activeDownload.size > 0 
-          ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
-          : 0;
-      }
-    }
-
-    return { inLibrary, hasFile, progress, serverId };
-  } catch (error) {
-    console.error('Sonarr status fetch failed:', error);
-    return defaultStatus;
+  if (!seriesResponse.ok) {
+    throw new Error(`Sonarr responded ${seriesResponse.status} when checking library`)
   }
+
+  const allSeries: any[] = await seriesResponse.json();
+  const seriesInfo = allSeries.find((s: any) => s.tvdbId === tvdbId);
+
+  const inLibrary = !!seriesInfo;
+  const statistics = seriesInfo?.statistics;
+  const hasFile = statistics
+    ? statistics.episodeFileCount >= statistics.totalEpisodeCount && statistics.totalEpisodeCount > 0
+    : false;
+  const serverId = seriesInfo?.id ?? null;
+
+  // 2. Check download queue
+  const queueResponse = await servarrFetch(`${baseUrl}/api/v3/queue`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+
+  let progress = null;
+  if (queueResponse.ok) {
+    const queueData = await queueResponse.json();
+    const activeDownload = queueData.records?.find((r: any) =>
+      r.series?.tvdbId === tvdbId || (serverId && r.seriesId === serverId)
+    );
+    if (activeDownload) {
+      progress = activeDownload.size > 0
+        ? Math.round(((activeDownload.size - activeDownload.sizeleft) / activeDownload.size) * 100)
+        : 0;
+    }
+  }
+
+  return { inLibrary, hasFile, progress, serverId };
 }
 
 export async function getTvdbIdFromTmdb(tmdbId: string): Promise<number | null> {

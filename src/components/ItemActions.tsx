@@ -45,9 +45,9 @@ export default function ItemActions({
   const isShow = mediaType === MediaType.SHOW
   const servarrEnabled = (isMovie && isRadarrEnabled) || (isShow && isSonarrEnabled)
   
-  const { status: mediaStatus, loading: statusLoading, refresh } = useMediaStatus(
-    id, 
-    mediaType, 
+  const { status: mediaStatus, loading: statusLoading, error: statusError, refresh } = useMediaStatus(
+    id,
+    mediaType,
     servarrEnabled
   )
 
@@ -101,9 +101,15 @@ export default function ItemActions({
   const handleRefresh = (e?: any) => {
     if (e?.stopPropagation) e.stopPropagation()
     toast.promise(refresh(), {
-      loading: 'Updating status...',
-      success: 'Status updated',
-      error: 'Could not reach server',
+      loading: 'Checking server...',
+      success: (data: any) => {
+        const s = data as typeof mediaStatus
+        if (s?.inLibrary && s?.hasFile) return 'In library ✓'
+        if (s?.inLibrary) return 'Monitored — not yet downloaded'
+        if (s?.progress !== null) return `Downloading ${s?.progress}%`
+        return 'Not in library'
+      },
+      error: (err: any) => err?.message || 'Could not reach server',
     })
   }
 
@@ -171,8 +177,11 @@ export default function ItemActions({
               size="icon"
               onClick={handleRefresh}
               disabled={statusLoading}
-              title="Refresh Status"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              title={statusError ? `Error: ${statusError} — click to retry` : 'Refresh Status'}
+              className={cn(
+                "h-8 w-8 hover:text-foreground",
+                statusError ? "text-destructive hover:text-destructive" : "text-muted-foreground"
+              )}
             >
               <RefreshCw className={cn("h-3 w-3", statusLoading && "animate-spin")} />
             </Button>

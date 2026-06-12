@@ -112,17 +112,12 @@ export async function getMediaStatusAction(itemId: string) {
 
   const externalId = item.media.externalId
 
-  try {
-    if (item.mediaType === MediaType.MOVIE) {
-      return await getMovieStatus(parseInt(externalId), config)
-    } else if (item.mediaType === MediaType.SHOW) {
-      const tvdbId = await getTvdbIdFromTmdb(externalId)
-      if (!tvdbId) return defaultStatus
-      return await getSeriesStatus(tvdbId, config)
-    }
-  } catch (error) {
-    console.error('Failed to get media status:', error)
-    return defaultStatus
+  if (item.mediaType === MediaType.MOVIE) {
+    return await getMovieStatus(parseInt(externalId), config)
+  } else if (item.mediaType === MediaType.SHOW) {
+    const tvdbId = await getTvdbIdFromTmdb(externalId)
+    if (!tvdbId) throw new Error('Could not find TVDB ID for this show')
+    return await getSeriesStatus(tvdbId, config)
   }
 
   return defaultStatus
