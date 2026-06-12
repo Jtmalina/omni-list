@@ -116,7 +116,7 @@ export default function ItemActions({
   const isDownloadableType = isMovie || isShow
 
   return (
-    <div className="flex items-center gap-1 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center gap-1 sm:gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
       {isDownloadableType && canEdit && (
         <div className="flex items-center gap-1">
           {statusLoading && !mediaStatus ? (
@@ -217,6 +217,7 @@ export default function ItemActions({
             onClick={handleDelete}
             disabled={isPending}
             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          title="Remove from List"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
