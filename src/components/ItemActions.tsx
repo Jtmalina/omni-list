@@ -124,9 +124,27 @@ export default function ItemActions({
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground opacity-50" />
             </div>
           ) : mediaStatus && mediaStatus.progress !== null ? (
-            <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-black animate-pulse">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span>{mediaStatus.progress}%</span>
+            <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/10 text-primary rounded-md text-[10px] font-black animate-pulse">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>{mediaStatus.progress}%</span>
+              </div>
+              {isOwner && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  title="Cancel download & Remove from Server"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const deleteFiles = confirm('Cancel this download and delete any partial files?')
+                    handleRemoveFromServer(deleteFiles)
+                  }}
+                  disabled={isPending}
+                >
+                  <HardDrive className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </div>
           ) : mediaStatus?.inLibrary ? (
             <div className="flex items-center gap-1">
