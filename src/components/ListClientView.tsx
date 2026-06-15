@@ -303,6 +303,8 @@ export default function ListClientView({
           listId={list.id}
           isOpen={!!selectedItem}
           onClose={() => { setSelectedItem(null); setOpenItemInEditMode(false) }}
+          isRadarrEnabled={isRadarrEnabled}
+          isSonarrEnabled={isSonarrEnabled}
           canEdit={canEdit}
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}
@@ -324,6 +326,8 @@ export default function ListClientView({
           listId={list.id}
           isOpen={!!selectedItem}
           onClose={() => { setSelectedItem(null); setOpenItemInEditMode(false) }}
+          isRadarrEnabled={isRadarrEnabled}
+          isSonarrEnabled={isSonarrEnabled}
           canEdit={canEdit}
           isOwner={isOwner}
           tagConfigs={tagConfigsMap}

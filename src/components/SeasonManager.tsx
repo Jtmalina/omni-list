@@ -37,8 +37,17 @@ export default function SeasonManager({
   const [deleteFiles, setDeleteFiles] = useState<number[]>([])
 
   const hydrate = async () => {
-    // Prefer Sonarr's live data; fall back to TMDB's season list if not added yet.
-    const sonarr = await getSeriesSeasonsAction(itemId)
+    // Prefer Sonarr's live data; fall back to TMDB's season list if the show
+    // isn't added yet OR if Sonarr is unreachable/erroring (e.g. 401). The
+    // TMDB fallback must always run so the picker works regardless.
+    let sonarr: { inLibrary: boolean; serverId: number | null; seasons: SeasonInfo[] } = {
+      inLibrary: false, serverId: null, seasons: [],
+    }
+    try {
+      sonarr = await getSeriesSeasonsAction(itemId)
+    } catch {
+      // Sonarr down/erroring — fall through to TMDB
+    }
     if (sonarr.inLibrary && sonarr.seasons.length > 0) {
       setInLibrary(true)
       setSeasons(sonarr.seasons)
