@@ -89,6 +89,17 @@ export default function AddItemDialog({
     }
   }, [isManualOpen])
 
+  // Load seasons when a TV show is preselected (e.g. Discover quick-add),
+  // since handleMediaSelect doesn't fire in that flow.
+  useEffect(() => {
+    if (open && preselectedMedia?.mediaType === 'tv') {
+      fetchTVSeasonsAction(preselectedMedia.id).then(seasons => {
+        setTvSeasons(seasons)
+        setSelectedSeasons(seasons.map(s => s.seasonNumber))
+      })
+    }
+  }, [open, preselectedMedia])
+
   useEffect(() => {
     if (open && !listId) {
       setFetchingLists(true)
