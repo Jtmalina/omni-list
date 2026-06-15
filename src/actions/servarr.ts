@@ -194,8 +194,16 @@ export async function downloadMediaAction(itemId: string) {
       const tvdbId = await getTvdbIdFromTmdb(externalId)
       if (!tvdbId) throw new Error('Could not find TVDB ID for this show')
 
-      const result = await addSeriesToSonarr({ tvdbId, title }, config)
-      const msg = result?.alreadyExists ? `${title} is already in Sonarr` : `Sent ${title} to Sonarr`
+      const streamingInfo = item.media?.streamingInfo as any
+      const monitoredSeasons: number[] | undefined = streamingInfo?.monitoredSeasons
+
+      const result = await addSeriesToSonarr({ tvdbId, title, monitoredSeasons }, config)
+      const seasonSummary = monitoredSeasons?.length
+        ? ` (S${monitoredSeasons.sort((a, b) => a - b).join(', S')})`
+        : ''
+      const msg = result?.alreadyExists
+        ? `${title} is already in Sonarr`
+        : `Sent ${title}${seasonSummary} to Sonarr`
       return { success: true, message: msg }
     }
   } catch (error: any) {

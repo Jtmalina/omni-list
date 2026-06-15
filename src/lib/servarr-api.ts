@@ -99,6 +99,7 @@ export async function addMovieToRadarr(movie: {
 export async function addSeriesToSonarr(series: {
   tvdbId: number;
   title: string;
+  monitoredSeasons?: number[];
 }, config: ServarrConfig) {
   const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
   const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
@@ -107,6 +108,27 @@ export async function addSeriesToSonarr(series: {
 
   if (!baseUrl || !apiKey) {
     throw new Error('Sonarr configuration missing in your settings');
+  }
+
+  // Build per-season monitored flags if specific seasons were selected.
+  // Sonarr needs to know the season numbers upfront — we get them from the
+  // lookup endpoint first, then mark only the selected ones as monitored.
+  let seasons: { seasonNumber: number; monitored: boolean }[] | undefined
+  if (series.monitoredSeasons) {
+    const lookupRes = await servarrFetch(
+      `${baseUrl}/api/v3/series/lookup?term=tvdb:${series.tvdbId}`,
+      { headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' } }
+    )
+    if (lookupRes.ok) {
+      const results: any[] = await lookupRes.json()
+      const match = results[0]
+      if (match?.seasons) {
+        seasons = match.seasons.map((s: any) => ({
+          seasonNumber: s.seasonNumber,
+          monitored: series.monitoredSeasons!.includes(s.seasonNumber),
+        }))
+      }
+    }
   }
 
   const response = await servarrFetch(`${baseUrl}/api/v3/series`, {
@@ -124,8 +146,11 @@ export async function addSeriesToSonarr(series: {
       rootFolderPath: rootFolder,
       monitored: true,
       languageProfileId: 1,
+      ...(seasons && { seasons }),
+      monitorNewItems: seasons ? 'none' : 'all', // don't auto-monitor future seasons if user picked specific ones
       addOptions: {
         searchForMissingEpisodes: true,
+        monitor: seasons ? 'none' : 'all', // Sonarr v4 uses this to skip its own season defaulting
       },
     }),
   });

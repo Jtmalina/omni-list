@@ -26,7 +26,7 @@ import GameSearch from './GameSearch'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
 import { X, Gamepad2, Loader2, Plus, List as ListIcon } from 'lucide-react'
-import { fetchStreamingInfoAction, fetchGameDetailsAction } from '@/actions/media'
+import { fetchStreamingInfoAction, fetchGameDetailsAction, fetchTVSeasonsAction } from '@/actions/media'
 import { format } from 'date-fns'
 import { TagManager } from './TagManager'
 import { cn } from '@/lib/utils'
@@ -80,6 +80,8 @@ export default function AddItemDialog({
   const [selectedMedia, setSelectedMedia] = useState<MediaSearchResult | null>(preselectedMedia || null)
   const [selectedGame, setSelectedGame] = useState<GameSearchResult | null>(preselectedGame || null)
   const [fetchingDetails, setFetchingDetails] = useState(false)
+  const [tvSeasons, setTvSeasons] = useState<{ seasonNumber: number; name: string; episodeCount: number }[]>([])
+  const [selectedSeasons, setSelectedSeasons] = useState<number[]>([])
 
   useEffect(() => {
     if (isManualOpen !== undefined) {
@@ -125,15 +127,24 @@ export default function AddItemDialog({
     setSelectedMedia(null)
     setSelectedGame(null)
     setFetchingDetails(false)
+    setTvSeasons([])
+    setSelectedSeasons([])
     setTitle('')
     setDescription('')
     setNotes('')
   }
 
-  const handleMediaSelect = (result: MediaSearchResult) => {
+  const handleMediaSelect = async (result: MediaSearchResult) => {
     setSelectedMedia(result)
     setTitle(result.title)
     setDescription(result.overview)
+    setTvSeasons([])
+    setSelectedSeasons([])
+    if (result.mediaType === 'tv') {
+      const seasons = await fetchTVSeasonsAction(result.id)
+      setTvSeasons(seasons)
+      setSelectedSeasons(seasons.map(s => s.seasonNumber)) // all selected by default
+    }
   }
 
   const handleGameSelect = async (result: GameSearchResult) => {
@@ -167,7 +178,13 @@ export default function AddItemDialog({
         posterPath: selectedMedia.posterPath ?? undefined,
         rating: selectedMedia.voteAverage,
         externalId: selectedMedia.id,
-        streamingInfo: streamingInfo ?? undefined,
+        streamingInfo: {
+          ...(streamingInfo ?? {}),
+          // Store selected seasons so download action can pass them to Sonarr
+          ...(selectedMedia.mediaType === 'tv' && selectedSeasons.length > 0 && {
+            monitoredSeasons: selectedSeasons,
+          }),
+        },
       }
     } else if (selectedGame) {
       mediaMetadata = {
@@ -344,6 +361,48 @@ export default function AddItemDialog({
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Season picker — TV shows only */}
+            {tvSeasons.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Seasons to Monitor</Label>
+                  <div className="flex gap-2 text-xs">
+                    <button type="button" onClick={() => setSelectedSeasons(tvSeasons.map(s => s.seasonNumber))} className="text-primary hover:underline">All</button>
+                    <span className="text-muted-foreground">·</span>
+                    <button type="button" onClick={() => setSelectedSeasons([])} className="text-primary hover:underline">None</button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
+                  {tvSeasons.map(s => {
+                    const checked = selectedSeasons.includes(s.seasonNumber)
+                    return (
+                      <button
+                        key={s.seasonNumber}
+                        type="button"
+                        onClick={() => setSelectedSeasons(prev =>
+                          checked ? prev.filter(n => n !== s.seasonNumber) : [...prev, s.seasonNumber]
+                        )}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border-2 transition-all',
+                          checked
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-transparent text-muted-foreground border-muted-foreground/30 hover:border-primary/50'
+                        )}
+                      >
+                        S{s.seasonNumber}
+                        <span className={cn('font-normal', checked ? 'text-primary-foreground/70' : 'text-muted-foreground/60')}>
+                          {s.episodeCount}ep
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {selectedSeasons.length === 0 && (
+                  <p className="text-xs text-amber-500">No seasons selected — show will be added to Sonarr but nothing will be monitored.</p>
+                )}
               </div>
             )}
 
