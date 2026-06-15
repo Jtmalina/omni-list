@@ -22,6 +22,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import ItemActions from './ItemActions'
+import SeasonManager from './SeasonManager'
 import { TagBadge } from './TagBadge'
 import { TagManager } from './TagManager'
 import { format } from 'date-fns'
@@ -421,6 +422,11 @@ export default function ItemDetailsDialog({
                       )}
                     </div>
                   </div>
+
+                  {/* Per-season monitoring (Sonarr) */}
+                  {item.mediaType === 'SHOW' && (
+                    <SeasonManager itemId={item.id} isOwner={isOwner} enabled={!!isSonarrEnabled} />
+                  )}
                 </div>
               )}
 

@@ -297,6 +297,126 @@ export async function getSeriesStatus(tvdbId: number, config: ServarrConfig) {
   return { inLibrary, hasFile, progress, serverId };
 }
 
+export interface SeasonInfo {
+  seasonNumber: number;
+  monitored: boolean;
+  episodeFileCount: number;
+  totalEpisodeCount: number;
+}
+
+// Returns the per-season monitored status + download counts for a series.
+export async function getSeriesSeasons(tvdbId: number, config: ServarrConfig): Promise<{
+  inLibrary: boolean;
+  serverId: number | null;
+  seasons: SeasonInfo[];
+}> {
+  const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
+
+  if (!baseUrl || !apiKey) return { inLibrary: false, serverId: null, seasons: [] };
+
+  const res = await servarrFetch(`${baseUrl}/api/v3/series`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+  if (!res.ok) throw new Error(`Sonarr responded ${res.status} when checking library`);
+
+  const all: any[] = await res.json();
+  const series = all.find((s: any) => s.tvdbId === tvdbId);
+  if (!series) return { inLibrary: false, serverId: null, seasons: [] };
+
+  const seasons: SeasonInfo[] = (series.seasons ?? [])
+    .filter((s: any) => s.seasonNumber > 0) // exclude specials
+    .map((s: any) => ({
+      seasonNumber: s.seasonNumber,
+      monitored: !!s.monitored,
+      episodeFileCount: s.statistics?.episodeFileCount ?? 0,
+      totalEpisodeCount: s.statistics?.totalEpisodeCount ?? 0,
+    }));
+
+  return { inLibrary: true, serverId: series.id, seasons };
+}
+
+// Updates which seasons are monitored on an existing series, optionally deleting
+// the episode files for seasons the user is un-monitoring. Triggers a search for
+// any newly-monitored seasons.
+export async function updateSeriesMonitoredSeasons(
+  serverId: number,
+  monitoredSeasons: number[],
+  config: ServarrConfig,
+  deleteFilesForSeasons: number[] = []
+): Promise<{ success: boolean }> {
+  const baseUrl = config.sonarrUrl?.trim().replace(/^["']|["']$/g, '').replace(/\/+$/, '');
+  const apiKey = config.sonarrApiKey?.trim().replace(/^["']|["']$/g, '');
+  if (!baseUrl || !apiKey) throw new Error('Sonarr configuration missing');
+
+  const jsonHeaders = {
+    'Content-Type': 'application/json',
+    'X-Api-Key': apiKey,
+    'User-Agent': 'OmniList-App/1.0',
+  };
+
+  // 1. Fetch the full series object (PUT needs the whole thing back)
+  const getRes = await servarrFetch(`${baseUrl}/api/v3/series/${serverId}`, {
+    headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+  });
+  if (!getRes.ok) throw new Error(`Sonarr responded ${getRes.status} fetching series`);
+  const series = await getRes.json();
+
+  const previouslyMonitored = new Set<number>(
+    (series.seasons ?? []).filter((s: any) => s.monitored).map((s: any) => s.seasonNumber)
+  );
+
+  // 2. Apply new monitored flags (leave specials / season 0 untouched)
+  series.seasons = (series.seasons ?? []).map((s: any) => ({
+    ...s,
+    monitored: s.seasonNumber === 0 ? s.monitored : monitoredSeasons.includes(s.seasonNumber),
+  }));
+
+  // 3. PUT the update
+  const putRes = await servarrFetch(`${baseUrl}/api/v3/series/${serverId}`, {
+    method: 'PUT',
+    headers: jsonHeaders,
+    body: JSON.stringify(series),
+  });
+  if (!putRes.ok) {
+    const err = await putRes.text();
+    throw new Error(`Sonarr update error (${putRes.status}): ${err || 'no details returned'}`);
+  }
+
+  // 4. Delete files for the requested seasons
+  if (deleteFilesForSeasons.length > 0) {
+    const efRes = await servarrFetch(`${baseUrl}/api/v3/episodefile?seriesId=${serverId}`, {
+      headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' }
+    });
+    if (efRes.ok) {
+      const files: any[] = await efRes.json();
+      const idsToDelete = files
+        .filter((f: any) => deleteFilesForSeasons.includes(f.seasonNumber))
+        .map((f: any) => f.id);
+      // Delete one at a time — the per-file endpoint is supported across all
+      // Sonarr v3/v4 versions, unlike the bulk endpoint which varies.
+      for (const fileId of idsToDelete) {
+        await servarrFetch(`${baseUrl}/api/v3/episodefile/${fileId}`, {
+          method: 'DELETE',
+          headers: { 'X-Api-Key': apiKey, 'User-Agent': 'OmniList-App/1.0' },
+        });
+      }
+    }
+  }
+
+  // 5. Search for newly-monitored seasons
+  const newlyMonitored = monitoredSeasons.filter(n => !previouslyMonitored.has(n));
+  for (const seasonNumber of newlyMonitored) {
+    await servarrFetch(`${baseUrl}/api/v3/command`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({ name: 'SeasonSearch', seriesId: serverId, seasonNumber }),
+    });
+  }
+
+  return { success: true };
+}
+
 export async function getTvdbIdFromTmdb(tmdbId: string): Promise<number | null> {
   const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '');
   if (!token) return null;

@@ -2,14 +2,16 @@
 
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
-import { 
-  addMovieToRadarr, 
-  addSeriesToSonarr, 
-  getTvdbIdFromTmdb, 
-  getMovieStatus, 
+import {
+  addMovieToRadarr,
+  addSeriesToSonarr,
+  getTvdbIdFromTmdb,
+  getMovieStatus,
   getSeriesStatus,
   deleteMovieFromRadarr,
-  deleteSeriesFromSonarr
+  deleteSeriesFromSonarr,
+  getSeriesSeasons,
+  updateSeriesMonitoredSeasons
 } from '@/lib/servarr-api'
 import { MediaType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
@@ -218,4 +220,80 @@ export async function downloadMediaAction(itemId: string) {
   }
 
   throw new Error('Unsupported media type for download')
+}
+
+export async function getSeriesSeasonsAction(itemId: string) {
+  const empty = { inLibrary: false, serverId: null as number | null, seasons: [] as any[] }
+
+  const session = await auth()
+  if (!session?.user?.id) return empty
+
+  const { item, config } = await getOwnerConfigForItem(itemId)
+  if (!item || item.mediaType !== MediaType.SHOW || !item.media?.externalId) return empty
+
+  try {
+    await verifyListAccess(item.listId, 'VIEW')
+  } catch (e) {
+    return empty
+  }
+
+  if (!config?.sonarrApiKey) return empty
+
+  const tvdbId = await getTvdbIdFromTmdb(item.media.externalId)
+  if (!tvdbId) throw new Error('Could not find TVDB ID for this show')
+
+  return await getSeriesSeasons(tvdbId, config)
+}
+
+export async function updateSeriesSeasonsAction(
+  itemId: string,
+  monitoredSeasons: number[],
+  deleteFilesForSeasons: number[] = []
+) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
+  const { item, config } = await getOwnerConfigForItem(itemId)
+  if (!item) throw new Error('Item not found')
+
+  // Changing monitoring needs VIEW (same as download); deleting files needs OWNER.
+  await verifyListAccess(item.listId, deleteFilesForSeasons.length > 0 ? 'OWNER' : 'VIEW')
+
+  if (!config?.sonarrApiKey) throw new Error('The list owner has not configured Sonarr.')
+  if (item.mediaType !== MediaType.SHOW || !item.media?.externalId) {
+    throw new Error('Item is not a TV show')
+  }
+
+  const tvdbId = await getTvdbIdFromTmdb(item.media.externalId)
+  if (!tvdbId) throw new Error('Could not find TVDB ID for this show')
+
+  const { inLibrary, serverId } = await getSeriesSeasons(tvdbId, config)
+  if (!inLibrary || !serverId) {
+    return { success: false, error: 'This show is not in Sonarr yet — download it first.' }
+  }
+
+  try {
+    await updateSeriesMonitoredSeasons(serverId, monitoredSeasons, config, deleteFilesForSeasons)
+
+    // Keep the item's stored selection in sync
+    await prisma.mediaMetadata.update({
+      where: { itemId },
+      data: {
+        streamingInfo: {
+          ...((item.media.streamingInfo as any) ?? {}),
+          monitoredSeasons,
+        },
+      },
+    }).catch(() => {})
+
+    return { success: true, message: 'Seasons updated' }
+  } catch (error: any) {
+    console.error('Update seasons error:', error)
+    const cause = error?.cause
+    const isNetworkError = cause?.code === 'ECONNRESET' || cause?.code === 'ECONNREFUSED' || cause?.code === 'ETIMEDOUT' || error?.message === 'fetch failed'
+    if (isNetworkError) {
+      return { success: false, error: `Could not reach ${cause?.host || 'your Sonarr server'}.` }
+    }
+    return { success: false, error: error.message || 'Failed to update seasons' }
+  }
 }
