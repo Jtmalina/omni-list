@@ -422,11 +422,6 @@ export default function ItemDetailsDialog({
                       )}
                     </div>
                   </div>
-
-                  {/* Per-season monitoring (Sonarr) */}
-                  {item.mediaType === 'SHOW' && (
-                    <SeasonManager itemId={item.id} isOwner={isOwner} enabled={!!isSonarrEnabled} />
-                  )}
                 </div>
               )}
 
@@ -447,6 +442,17 @@ export default function ItemDetailsDialog({
                 </div>
               </div>
             </>
+          )}
+
+          {/* Per-season monitoring (Sonarr) — shown in both view and edit modes */}
+          {isMedia && item.mediaType === 'SHOW' && canEdit && (
+            <SeasonManager
+              itemId={item.id}
+              tmdbId={item.media?.externalId}
+              storedSeasons={(item.media?.streamingInfo as any)?.monitoredSeasons as number[] | undefined}
+              isOwner={isOwner}
+              enabled={!!isSonarrEnabled}
+            />
           )}
 
           <div className="flex items-center justify-between pt-2">

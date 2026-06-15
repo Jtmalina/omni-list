@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getSeriesSeasonsAction, updateSeriesSeasonsAction } from '@/actions/servarr'
-import { Loader2, Save, Eye, EyeOff, CheckCircle2, Trash2 } from 'lucide-react'
+import { getSeriesSeasonsAction, updateSeriesSeasonsAction, saveSeasonPreferenceAction } from '@/actions/servarr'
+import { fetchTVSeasonsAction } from '@/actions/media'
+import { Loader2, Save, Check, CheckCircle2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -17,10 +18,14 @@ interface SeasonInfo {
 
 export default function SeasonManager({
   itemId,
+  tmdbId,
+  storedSeasons,
   isOwner,
   enabled,
 }: {
   itemId: string
+  tmdbId?: string | null
+  storedSeasons?: number[]
   isOwner: boolean
   enabled: boolean
 }) {
@@ -31,49 +36,55 @@ export default function SeasonManager({
   const [selected, setSelected] = useState<number[]>([])
   const [deleteFiles, setDeleteFiles] = useState<number[]>([])
 
-  const load = async () => {
-    setLoading(true)
-    try {
-      const res = await getSeriesSeasonsAction(itemId)
-      setInLibrary(res.inLibrary)
-      setSeasons(res.seasons)
-      setSelected(res.seasons.filter((s: SeasonInfo) => s.monitored).map((s: SeasonInfo) => s.seasonNumber))
+  const hydrate = async () => {
+    // Prefer Sonarr's live data; fall back to TMDB's season list if not added yet.
+    const sonarr = await getSeriesSeasonsAction(itemId)
+    if (sonarr.inLibrary && sonarr.seasons.length > 0) {
+      setInLibrary(true)
+      setSeasons(sonarr.seasons)
+      setSelected(sonarr.seasons.filter((s: SeasonInfo) => s.monitored).map((s: SeasonInfo) => s.seasonNumber))
       setDeleteFiles([])
-    } catch {
-      // swallow — section just won't show
-    } finally {
-      setLoading(false)
+      return
+    }
+    // Not in Sonarr yet — build the list from TMDB and seed from stored preference
+    if (tmdbId) {
+      const tmdb = await fetchTVSeasonsAction(tmdbId)
+      const synthesized: SeasonInfo[] = tmdb.map(s => ({
+        seasonNumber: s.seasonNumber,
+        monitored: storedSeasons ? storedSeasons.includes(s.seasonNumber) : true,
+        episodeFileCount: 0,
+        totalEpisodeCount: s.episodeCount,
+      }))
+      setInLibrary(false)
+      setSeasons(synthesized)
+      setSelected(storedSeasons ?? synthesized.map(s => s.seasonNumber))
+      setDeleteFiles([])
     }
   }
 
   useEffect(() => {
     let active = true
-    if (enabled) {
-      getSeriesSeasonsAction(itemId)
-        .then(res => {
-          if (!active) return
-          setInLibrary(res.inLibrary)
-          setSeasons(res.seasons)
-          setSelected(res.seasons.filter((s: SeasonInfo) => s.monitored).map((s: SeasonInfo) => s.seasonNumber))
-        })
-        .catch(() => {})
-        .finally(() => active && setLoading(false))
-    } else {
+    if (!enabled) {
       setLoading(false)
+      return
     }
+    setLoading(true)
+    hydrate()
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemId, enabled])
 
-  if (!enabled || loading) {
-    return enabled ? (
+  if (!enabled) return null
+  if (loading) {
+    return (
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Loader2 className="h-3 w-3 animate-spin" /> Checking Sonarr…
       </div>
-    ) : null
+    )
   }
-
-  // Not downloaded to Sonarr yet — nothing to manage here
-  if (!inLibrary) return null
+  if (seasons.length === 0) return null
 
   const originalMonitored = seasons.filter(s => s.monitored).map(s => s.seasonNumber).sort((a, b) => a - b)
   const changed =
@@ -83,10 +94,9 @@ export default function SeasonManager({
   const toggle = (s: SeasonInfo) => {
     const isSelected = selected.includes(s.seasonNumber)
     if (isSelected) {
-      // Un-monitoring this season
       setSelected(prev => prev.filter(n => n !== s.seasonNumber))
-      // If it has downloaded files and the user owns the server, offer to delete them
-      if (s.episodeFileCount > 0 && isOwner) {
+      // Only in-library seasons with files can have their files deleted (owner only)
+      if (inLibrary && s.episodeFileCount > 0 && isOwner) {
         const del = confirm(
           `Season ${s.seasonNumber} has ${s.episodeFileCount} downloaded episode${s.episodeFileCount === 1 ? '' : 's'}.\n\n` +
           `OK  = stop monitoring AND delete the files from disk\n` +
@@ -95,7 +105,6 @@ export default function SeasonManager({
         setDeleteFiles(prev => del ? [...prev, s.seasonNumber] : prev.filter(n => n !== s.seasonNumber))
       }
     } else {
-      // Re-monitoring cancels any pending deletion
       setSelected(prev => [...prev, s.seasonNumber])
       setDeleteFiles(prev => prev.filter(n => n !== s.seasonNumber))
     }
@@ -103,14 +112,24 @@ export default function SeasonManager({
 
   const save = async () => {
     setSaving(true)
-    const res = await updateSeriesSeasonsAction(itemId, selected, deleteFiles)
+    const res = inLibrary
+      ? await updateSeriesSeasonsAction(itemId, selected, deleteFiles)
+      : await saveSeasonPreferenceAction(itemId, selected)
     setSaving(false)
     if (res.success) {
-      const deleted = deleteFiles.length
-      toast.success(deleted > 0 ? `Seasons updated · files deleted for ${deleted} season(s)` : 'Seasons updated')
-      await load()
+      if (inLibrary) {
+        const deleted = deleteFiles.length
+        toast.success(deleted > 0 ? `Seasons updated · files deleted for ${deleted} season(s)` : 'Seasons updated')
+        setLoading(true)
+        await hydrate().catch(() => {})
+        setLoading(false)
+      } else {
+        toast.success('Season preferences saved')
+        // Reflect the new "monitored" baseline locally
+        setSeasons(prev => prev.map(s => ({ ...s, monitored: selected.includes(s.seasonNumber) })))
+      }
     } else {
-      toast.error(res.error)
+      toast.error((res as { error?: string }).error || 'Failed to save seasons')
     }
   }
 
@@ -123,22 +142,21 @@ export default function SeasonManager({
         <div className="flex gap-2 text-xs">
           <button type="button" onClick={() => setSelected(seasons.map(s => s.seasonNumber))} className="text-primary hover:underline">All</button>
           <span className="text-muted-foreground">·</span>
-          <button
-            type="button"
-            onClick={() => {
-              // Un-monitoring everything: prompt once per season-with-files if owner
-              setSelected([])
-            }}
-            className="text-primary hover:underline"
-          >None</button>
+          <button type="button" onClick={() => setSelected([])} className="text-primary hover:underline">None</button>
         </div>
       </div>
 
+      {!inLibrary && (
+        <p className="text-[10px] text-muted-foreground italic">
+          Not in Sonarr yet — pick which seasons to grab when you download.
+        </p>
+      )}
+
       <div className="space-y-1.5">
         {seasons.map(s => {
-          const isMonitored = selected.includes(s.seasonNumber)
+          const isSelected = selected.includes(s.seasonNumber)
           const willDelete = deleteFiles.includes(s.seasonNumber)
-          const complete = s.totalEpisodeCount > 0 && s.episodeFileCount >= s.totalEpisodeCount
+          const complete = inLibrary && s.totalEpisodeCount > 0 && s.episodeFileCount >= s.totalEpisodeCount
           return (
             <button
               key={s.seasonNumber}
@@ -146,18 +164,22 @@ export default function SeasonManager({
               onClick={() => toggle(s)}
               className={cn(
                 'w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl border-2 transition-all text-left',
-                isMonitored
+                isSelected
                   ? 'border-primary/50 bg-primary/5'
                   : 'border-muted-foreground/15 bg-transparent hover:border-muted-foreground/30',
                 willDelete && 'border-destructive/50 bg-destructive/5'
               )}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                {isMonitored ? (
-                  <Eye className="h-4 w-4 text-primary shrink-0" />
-                ) : (
-                  <EyeOff className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-                )}
+                {/* Explicit checkbox pill */}
+                <span className={cn(
+                  'h-5 w-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
+                  isSelected
+                    ? 'bg-primary border-primary text-primary-foreground'
+                    : 'border-muted-foreground/30'
+                )}>
+                  {isSelected && <Check className="h-3.5 w-3.5" />}
+                </span>
                 <span className="font-bold text-sm">Season {s.seasonNumber}</span>
                 {complete && !willDelete && (
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
@@ -173,7 +195,7 @@ export default function SeasonManager({
                   'text-[11px] font-mono font-bold tabular-nums',
                   complete ? 'text-green-600' : 'text-muted-foreground'
                 )}>
-                  {s.episodeFileCount}/{s.totalEpisodeCount || '?'}
+                  {inLibrary ? `${s.episodeFileCount}/${s.totalEpisodeCount || '?'}` : `${s.totalEpisodeCount || '?'}ep`}
                 </span>
               </div>
             </button>
@@ -186,7 +208,9 @@ export default function SeasonManager({
           <p className="text-[10px] text-muted-foreground italic">
             {deleteFiles.length > 0
               ? `${deleteFiles.length} season(s) will have files deleted`
-              : 'Newly monitored seasons will be searched'}
+              : inLibrary
+                ? 'Newly monitored seasons will be searched'
+                : 'Saved for when you download'}
           </p>
           <Button size="sm" onClick={save} disabled={saving} className="h-8">
             {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}

@@ -25,7 +25,7 @@ import MediaSearch from './MediaSearch'
 import GameSearch from './GameSearch'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
 import Image from 'next/image'
-import { X, Gamepad2, Loader2, Plus, List as ListIcon } from 'lucide-react'
+import { X, Gamepad2, Loader2, Plus, List as ListIcon, Check } from 'lucide-react'
 import { fetchStreamingInfoAction, fetchGameDetailsAction, fetchTVSeasonsAction } from '@/actions/media'
 import { format } from 'date-fns'
 import { TagManager } from './TagManager'
@@ -403,6 +403,12 @@ export default function AddItemDialog({
                             : 'bg-transparent text-muted-foreground border-muted-foreground/30 hover:border-primary/50'
                         )}
                       >
+                        <span className={cn(
+                          'h-3.5 w-3.5 rounded-[4px] border-2 flex items-center justify-center shrink-0 transition-all',
+                          checked ? 'bg-primary-foreground border-primary-foreground text-primary' : 'border-current opacity-50'
+                        )}>
+                          {checked && <Check className="h-2.5 w-2.5" />}
+                        </span>
                         S{s.seasonNumber}
                         <span className={cn('font-normal', checked ? 'text-primary-foreground/70' : 'text-muted-foreground/60')}>
                           {s.episodeCount}ep

@@ -245,6 +245,31 @@ export async function getSeriesSeasonsAction(itemId: string) {
   return await getSeriesSeasons(tvdbId, config)
 }
 
+// Saves a season selection to the item's metadata only (no Sonarr call).
+// Used when the show isn't in Sonarr yet — the preference is applied when
+// it's later downloaded (addSeriesToSonarr reads streamingInfo.monitoredSeasons).
+export async function saveSeasonPreferenceAction(itemId: string, monitoredSeasons: number[]) {
+  const session = await auth()
+  if (!session?.user?.id) throw new Error('Unauthorized')
+
+  const item = await prisma.item.findUnique({ where: { id: itemId }, include: { media: true } })
+  if (!item) throw new Error('Item not found')
+
+  await verifyListAccess(item.listId, 'EDIT')
+
+  await prisma.mediaMetadata.update({
+    where: { itemId },
+    data: {
+      streamingInfo: {
+        ...((item.media?.streamingInfo as any) ?? {}),
+        monitoredSeasons,
+      },
+    },
+  })
+
+  return { success: true, message: 'Season preferences saved' }
+}
+
 export async function updateSeriesSeasonsAction(
   itemId: string,
   monitoredSeasons: number[],
