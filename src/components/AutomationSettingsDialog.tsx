@@ -229,7 +229,7 @@ export default function AutomationSettingsDialog() {
               <p className="text-xs text-muted-foreground font-mono">Loading settings...</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-6">
               {/* Landing List Config */}
               <div className="space-y-2">
                 <Label>Landing List</Label>
