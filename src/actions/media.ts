@@ -8,6 +8,10 @@ import {
   getMediaRecommendations,
   getGameGenres,
   getGamesByGenres,
+  getTrendingMedia,
+  getTrendingGames,
+  getUpcomingMedia,
+  getUpcomingGames,
   type MediaSearchResult,
   type GameSearchResult,
 } from '@/lib/media-api'
@@ -30,6 +34,16 @@ export async function fetchGameDetailsAction(gameId: string) {
 
 export async function fetchStreamingInfoAction(id: string, type: 'movie' | 'tv') {
   return await getStreamingProviders(id, type)
+}
+
+export async function getTrendingAction(): Promise<(MediaSearchResult | GameSearchResult)[]> {
+  const [media, games] = await Promise.all([getTrendingMedia(), getTrendingGames()])
+  return [...media.slice(0, 12), ...games.slice(0, 6)]
+}
+
+export async function getUpcomingAction(): Promise<(MediaSearchResult | GameSearchResult)[]> {
+  const [media, games] = await Promise.all([getUpcomingMedia(), getUpcomingGames()])
+  return [...media.slice(0, 12), ...games.slice(0, 6)]
 }
 
 // Recommends content based on the user's library. Seeds are chosen completed-first

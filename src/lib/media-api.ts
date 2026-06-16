@@ -442,6 +442,115 @@ export async function getGamesByGenres(genreSlugs: string[]): Promise<GameSearch
   }
 }
 
+// ─── Trending & Upcoming ─────────────────────────────────────────────────────
+
+const mapRawgGame = (r: any): GameSearchResult => ({
+  id: r.id.toString(),
+  title: r.name,
+  overview: (r.genres as any[] ?? []).map((g: any) => g.name).join(', '),
+  posterPath: r.background_image ?? null,
+  releaseDate: r.released ?? '',
+  mediaType: 'game' as const,
+  rating: r.rating ?? 0,
+  metacritic: r.metacritic ?? null,
+  esrb: r.esrb_rating?.name ?? null,
+  platforms: (r.platforms as any[] ?? []).map((p: any) => p.platform.name as string),
+  stores: (r.stores as any[] ?? []).map((s: any) => s.store.name as string),
+})
+
+const ymd = (d: Date) => d.toISOString().split('T')[0]
+
+export async function getTrendingMedia(): Promise<MediaSearchResult[]> {
+  try {
+    const res = await fetch(`${TMDB_BASE_URL}/trending/all/week?language=en-US`, {
+      headers: getTMDBHeaders(), cache: 'no-store',
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results ?? [])
+      .filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv')
+      .map((r: any) => ({
+        id: r.id.toString(),
+        title: r.title || r.name,
+        overview: r.overview ?? '',
+        posterPath: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+        releaseDate: r.release_date || r.first_air_date || '',
+        mediaType: r.media_type as 'movie' | 'tv',
+        voteAverage: r.vote_average ?? 0,
+      }))
+  } catch (error) {
+    console.error('TMDB Trending Failure:', error)
+    return []
+  }
+}
+
+export async function getTrendingGames(): Promise<GameSearchResult[]> {
+  try {
+    const key = getRAWGKey()
+    const today = new Date()
+    const past = new Date(); past.setMonth(past.getMonth() - 2)
+    const res = await fetch(
+      `${RAWG_BASE_URL}/games?key=${key}&dates=${ymd(past)},${ymd(today)}&ordering=-added&page_size=12`,
+      { headers: { accept: 'application/json' }, cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results ?? []).map(mapRawgGame)
+  } catch (error) {
+    console.error('RAWG Trending Failure:', error)
+    return []
+  }
+}
+
+export async function getUpcomingMedia(): Promise<MediaSearchResult[]> {
+  try {
+    const [mv, tv] = await Promise.all([
+      fetch(`${TMDB_BASE_URL}/movie/upcoming?language=en-US&page=1`, { headers: getTMDBHeaders(), cache: 'no-store' }).then(r => r.ok ? r.json() : { results: [] }),
+      fetch(`${TMDB_BASE_URL}/tv/on_the_air?language=en-US&page=1`, { headers: getTMDBHeaders(), cache: 'no-store' }).then(r => r.ok ? r.json() : { results: [] }),
+    ])
+    const movies = (mv.results ?? []).map((r: any) => ({
+      id: r.id.toString(),
+      title: r.title,
+      overview: r.overview ?? '',
+      posterPath: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+      releaseDate: r.release_date || '',
+      mediaType: 'movie' as const,
+      voteAverage: r.vote_average ?? 0,
+    }))
+    const shows = (tv.results ?? []).map((r: any) => ({
+      id: r.id.toString(),
+      title: r.name,
+      overview: r.overview ?? '',
+      posterPath: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+      releaseDate: r.first_air_date || '',
+      mediaType: 'tv' as const,
+      voteAverage: r.vote_average ?? 0,
+    }))
+    return [...movies, ...shows]
+  } catch (error) {
+    console.error('TMDB Upcoming Failure:', error)
+    return []
+  }
+}
+
+export async function getUpcomingGames(): Promise<GameSearchResult[]> {
+  try {
+    const key = getRAWGKey()
+    const today = new Date()
+    const future = new Date(); future.setMonth(future.getMonth() + 6)
+    const res = await fetch(
+      `${RAWG_BASE_URL}/games?key=${key}&dates=${ymd(today)},${ymd(future)}&ordering=-added&page_size=12`,
+      { headers: { accept: 'application/json' }, cache: 'no-store' }
+    )
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results ?? []).map(mapRawgGame)
+  } catch (error) {
+    console.error('RAWG Upcoming Failure:', error)
+    return []
+  }
+}
+
 export async function getGameDetails(gameId: string): Promise<{ description: string } | null> {
   try {
     const key = getRAWGKey()

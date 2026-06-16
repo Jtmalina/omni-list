@@ -18,7 +18,7 @@ import { renameList } from '@/actions/list'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 import { useRouter } from 'next/navigation'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
-import { searchMediaAction, searchGamesAction, getRecommendationsAction } from '@/actions/media'
+import { searchMediaAction, searchGamesAction, getRecommendationsAction, getTrendingAction, getUpcomingAction } from '@/actions/media'
 import DiscoverCard from './DiscoverCard'
 
 type ItemWithMedia = Item & {
@@ -33,6 +33,7 @@ interface StreamingProvider {
 
 interface StreamingInfo {
   flatrate?: StreamingProvider[]
+  link?: string // JustWatch "where to watch" deep link from TMDB
 }
 
 interface GameInfo {
@@ -116,6 +117,8 @@ export default function ListClientView({
   const [quickAddMedia, setQuickAddMedia] = useState<MediaSearchResult | null>(null)
   const [quickAddGame, setQuickAddGame] = useState<GameSearchResult | null>(null)
   const [recommendations, setRecommendations] = useState<(MediaSearchResult | GameSearchResult)[]>([])
+  const [trending, setTrending] = useState<(MediaSearchResult | GameSearchResult)[]>([])
+  const [upcoming, setUpcoming] = useState<(MediaSearchResult | GameSearchResult)[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
   const [recsLoaded, setRecsLoaded] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -247,15 +250,17 @@ export default function ListClientView({
     setSelectedItem(item)
   }
 
-  // Load library-based recommendations the first time the Discover tab is opened
+  // Load the Discover feed (trending, upcoming, recommendations) the first time
+  // the Discover tab is opened.
   useEffect(() => {
     if (activeCategory === 'DISCOVER' && !recsLoaded) {
       setRecsLoaded(true)
       setRecsLoading(true)
-      getRecommendationsAction()
-        .then(setRecommendations)
-        .catch(() => {})
-        .finally(() => setRecsLoading(false))
+      Promise.all([
+        getTrendingAction().then(setTrending).catch(() => {}),
+        getUpcomingAction().then(setUpcoming).catch(() => {}),
+        getRecommendationsAction().then(setRecommendations).catch(() => {}),
+      ]).finally(() => setRecsLoading(false))
     }
   }, [activeCategory, recsLoaded])
 
@@ -749,29 +754,37 @@ export default function ListClientView({
               </div>
             </div>
 
-            {/* When not searching: library-based recommendations */}
+            {/* When not searching: Discover feed (trending, upcoming, recommendations) */}
             {!discoverQuery && (
               recsLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                   <Loader2 className="h-6 w-6 animate-spin mb-3" />
-                  <p className="font-mono text-sm">Finding recommendations…</p>
+                  <p className="font-mono text-sm">Loading discover feed…</p>
                 </div>
-              ) : recommendations.length > 0 ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-black uppercase tracking-tight">Recommended for you</h3>
-                    <p className="text-xs text-muted-foreground font-mono">Based on what's in your library</p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-                    {recommendations.map((r) => (
-                      <DiscoverCard
-                        key={`${(r as any).mediaType}-${r.id}`}
-                        result={r}
-                        canEdit={canEdit}
-                        onAdd={() => (r as any).mediaType === 'game' ? setQuickAddGame(r as GameSearchResult) : setQuickAddMedia(r as MediaSearchResult)}
-                      />
-                    ))}
-                  </div>
+              ) : (trending.length + upcoming.length + recommendations.length) > 0 ? (
+                <div className="space-y-10">
+                  {[
+                    { key: 'trending', title: 'Trending This Week', subtitle: 'Popular right now', items: trending },
+                    { key: 'upcoming', title: 'Coming Soon', subtitle: 'Upcoming & now playing', items: upcoming },
+                    { key: 'recs', title: 'Recommended For You', subtitle: "Based on what's in your library", items: recommendations },
+                  ].filter(sec => sec.items.length > 0).map(sec => (
+                    <div key={sec.key} className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-black uppercase tracking-tight">{sec.title}</h3>
+                        <p className="text-xs text-muted-foreground font-mono">{sec.subtitle}</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                        {sec.items.map((r) => (
+                          <DiscoverCard
+                            key={`${(r as any).mediaType}-${r.id}`}
+                            result={r}
+                            canEdit={canEdit}
+                            onAdd={() => (r as any).mediaType === 'game' ? setQuickAddGame(r as GameSearchResult) : setQuickAddMedia(r as MediaSearchResult)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-20 opacity-20">
@@ -929,23 +942,40 @@ export default function ListClientView({
                       </button>
                     )}
 
-                    {/* Streaming logos — bottom left */}
+                    {/* Streaming logos — bottom left (click to open "where to watch") */}
                     {providers.length > 0 && (
                       <div className="absolute bottom-2 left-2 flex flex-col gap-1">
-                        {providers.map((provider: any) => (
-                          <div
-                            key={provider.provider_id}
-                            className="relative h-6 w-6 rounded-md overflow-hidden border border-white/20 shadow-md"
-                            title={provider.provider_name}
-                          >
+                        {providers.map((provider: any) => {
+                          const logo = (
                             <Image
                               src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
                               alt={provider.provider_name}
                               fill
                               className="object-cover"
                             />
-                          </div>
-                        ))}
+                          )
+                          return streaming.link ? (
+                            <a
+                              key={provider.provider_id}
+                              href={streaming.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title={`Watch ${item.title} on ${provider.provider_name}`}
+                              className="relative h-6 w-6 rounded-md overflow-hidden border border-white/20 shadow-md hover:scale-110 transition-transform"
+                            >
+                              {logo}
+                            </a>
+                          ) : (
+                            <div
+                              key={provider.provider_id}
+                              className="relative h-6 w-6 rounded-md overflow-hidden border border-white/20 shadow-md"
+                              title={provider.provider_name}
+                            >
+                              {logo}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
 
@@ -1113,16 +1143,33 @@ export default function ListClientView({
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold uppercase text-muted-foreground hidden sm:inline">Stream on:</span>
                             <div className="flex -space-x-2">
-                              {providers.slice(0, 3).map((provider: any) => (
-                                <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
+                              {providers.slice(0, 3).map((provider: any) => {
+                                const logo = (
                                   <Image
                                     src={`https://image.tmdb.org/t/p/original${provider.logo_path}`}
                                     alt={provider.provider_name}
                                     fill
                                     className="object-cover"
                                   />
-                                </div>
-                              ))}
+                                )
+                                return streaming.link ? (
+                                  <a
+                                    key={provider.provider_id}
+                                    href={streaming.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title={`Watch ${item.title} on ${provider.provider_name}`}
+                                    className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm hover:scale-110 hover:z-10 transition-transform"
+                                  >
+                                    {logo}
+                                  </a>
+                                ) : (
+                                  <div key={provider.provider_id} className="relative h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted shadow-sm" title={provider.provider_name}>
+                                    {logo}
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         ) : null}
