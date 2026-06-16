@@ -5,6 +5,10 @@ import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { ListType } from '@prisma/client'
 import { verifyListAccess } from '@/lib/permissions'
+import { idSchema, parseOrThrow } from '@/lib/validation'
+import { z } from 'zod'
+
+const titleSchema = z.string().trim().min(1).max(100)
 
 async function getUserId() {
   const session = await auth()
@@ -73,8 +77,10 @@ export async function upsertTagConfig(listId: string, name: string, color: strin
 }
 
 export async function renameList(id: string, title: string) {
+  parseOrThrow(idSchema, id, 'list id')
+  const cleanTitle = parseOrThrow(titleSchema, title, 'title')
   await verifyListAccess(id, 'OWNER')
-  await prisma.list.update({ where: { id }, data: { title: title.trim() } })
+  await prisma.list.update({ where: { id }, data: { title: cleanTitle } })
   revalidatePath('/')
 }
 

@@ -6,6 +6,10 @@ import { AccessLevel, ActivityType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { verifyListAccess } from '@/lib/permissions'
 import { logActivity } from '@/lib/activity'
+import { idSchema, parseOrThrow } from '@/lib/validation'
+import { z } from 'zod'
+
+const accessLevelSchema = z.enum(['VIEW', 'EDIT'])
 
 async function getUserId() {
   const session = await auth()
@@ -15,6 +19,9 @@ async function getUserId() {
 
 export async function shareListAction(listId: string, friendId: string, accessLevel: AccessLevel) {
   const currentUserId = await getUserId()
+  parseOrThrow(idSchema, listId, 'list id')
+  parseOrThrow(idSchema, friendId, 'friend id')
+  parseOrThrow(accessLevelSchema, accessLevel, 'access level')
   // Only owner can share a list
   await verifyListAccess(listId, 'OWNER')
 

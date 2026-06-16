@@ -17,14 +17,23 @@ import {
 } from '@/lib/media-api'
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
+import { rateLimit } from '@/lib/rate-limit'
+
+// Derives a stable rate-limit key from the current session (or 'anon').
+async function rlKey(prefix: string): Promise<string> {
+  const session = await auth()
+  return `${prefix}:${session?.user?.id ?? 'anon'}`
+}
 
 export async function searchMediaAction(query: string) {
   if (!query || query.length < 2) return []
+  if (!rateLimit(await rlKey('search'), 40, 10_000).ok) return []
   return await searchMedia(query)
 }
 
 export async function searchGamesAction(query: string) {
   if (!query || query.length < 2) return []
+  if (!rateLimit(await rlKey('search'), 40, 10_000).ok) return []
   return await searchGames(query)
 }
 
@@ -37,11 +46,13 @@ export async function fetchStreamingInfoAction(id: string, type: 'movie' | 'tv')
 }
 
 export async function getTrendingAction(): Promise<(MediaSearchResult | GameSearchResult)[]> {
+  if (!rateLimit(await rlKey('feed'), 30, 60_000).ok) return []
   const [media, games] = await Promise.all([getTrendingMedia(), getTrendingGames()])
   return [...media.slice(0, 12), ...games.slice(0, 6)]
 }
 
 export async function getUpcomingAction(): Promise<(MediaSearchResult | GameSearchResult)[]> {
+  if (!rateLimit(await rlKey('feed'), 30, 60_000).ok) return []
   const [media, games] = await Promise.all([getUpcomingMedia(), getUpcomingGames()])
   return [...media.slice(0, 12), ...games.slice(0, 6)]
 }
@@ -54,6 +65,7 @@ export async function getUpcomingAction(): Promise<(MediaSearchResult | GameSear
 export async function getRecommendationsAction(): Promise<(MediaSearchResult | GameSearchResult)[]> {
   const session = await auth()
   if (!session?.user?.id) return []
+  if (!rateLimit(`feed:${session.user.id}`, 30, 60_000).ok) return []
 
   const items = await prisma.item.findMany({
     where: {

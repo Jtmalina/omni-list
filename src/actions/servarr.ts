@@ -17,6 +17,8 @@ import { MediaType } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { encrypt, decrypt } from '@/lib/encryption'
 import { verifyListAccess } from '@/lib/permissions'
+import { enforceRateLimit, rateLimit } from '@/lib/rate-limit'
+import { idSchema, seasonsSchema, serverIdSchema, parseOrThrow } from '@/lib/validation'
 
 export async function getServarrConfigAction() {
   const session = await auth()
@@ -103,6 +105,10 @@ export async function getMediaStatusAction(itemId: string) {
   const session = await auth()
   if (!session?.user?.id) return defaultStatus
 
+  // Status polls on a timer, so degrade gracefully rather than throwing. Generous
+  // limit covers large libraries polling in parallel while capping runaway loops.
+  if (!rateLimit(`status:${session.user.id}`, 240, 60_000).ok) return defaultStatus
+
   // Security check: must have at least view access to the list
   const item = await prisma.item.findUnique({ where: { id: itemId }, select: { listId: true, media: true, mediaType: true } })
   if (!item || !item.media?.externalId) return defaultStatus
@@ -131,6 +137,9 @@ export async function getMediaStatusAction(itemId: string) {
 export async function removeMediaFromServerAction(itemId: string, serverId: number, deleteFiles: boolean = false) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
+  enforceRateLimit(`servarr-write:${session.user.id}`, 20, 60_000)
+  parseOrThrow(idSchema, itemId, 'item id')
+  parseOrThrow(serverIdSchema, serverId, 'server id')
 
   // Only the list owner can remove from server
   const { item, config } = await getOwnerConfigForItem(itemId)
@@ -157,6 +166,8 @@ export async function removeMediaFromServerAction(itemId: string, serverId: numb
 export async function downloadMediaAction(itemId: string) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
+  enforceRateLimit(`servarr-write:${session.user.id}`, 20, 60_000)
+  parseOrThrow(idSchema, itemId, 'item id')
 
   const { item, config } = await getOwnerConfigForItem(itemId)
 
@@ -251,6 +262,8 @@ export async function getSeriesSeasonsAction(itemId: string) {
 export async function saveSeasonPreferenceAction(itemId: string, monitoredSeasons: number[]) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
+  parseOrThrow(idSchema, itemId, 'item id')
+  parseOrThrow(seasonsSchema, monitoredSeasons, 'seasons')
 
   const item = await prisma.item.findUnique({ where: { id: itemId }, include: { media: true } })
   if (!item) throw new Error('Item not found')
@@ -277,6 +290,10 @@ export async function updateSeriesSeasonsAction(
 ) {
   const session = await auth()
   if (!session?.user?.id) throw new Error('Unauthorized')
+  enforceRateLimit(`servarr-write:${session.user.id}`, 20, 60_000)
+  parseOrThrow(idSchema, itemId, 'item id')
+  parseOrThrow(seasonsSchema, monitoredSeasons, 'seasons')
+  parseOrThrow(seasonsSchema, deleteFilesForSeasons, 'seasons')
 
   const { item, config } = await getOwnerConfigForItem(itemId)
   if (!item) throw new Error('Item not found')
