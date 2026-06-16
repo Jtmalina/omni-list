@@ -366,6 +366,82 @@ export async function discoverNewGames(studioId: string, lastChecked: Date): Pro
   }
 }
 
+// ─── Recommendations ────────────────────────────────────────────────────────
+
+// TMDB recommendations for a movie/show seed.
+export async function getMediaRecommendations(id: string, type: 'movie' | 'tv'): Promise<MediaSearchResult[]> {
+  try {
+    const response = await fetch(
+      `${TMDB_BASE_URL}/${type}/${id}/recommendations?language=en-US&page=1`,
+      { headers: getTMDBHeaders(), cache: 'no-store' }
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.results ?? [])
+      .filter((r: any) => !r.media_type || r.media_type === 'movie' || r.media_type === 'tv')
+      .map((r: any) => ({
+        id: r.id.toString(),
+        title: r.title || r.name,
+        overview: r.overview ?? '',
+        posterPath: r.poster_path ? `https://image.tmdb.org/t/p/w500${r.poster_path}` : null,
+        releaseDate: r.release_date || r.first_air_date || '',
+        mediaType: (r.media_type === 'tv' || r.media_type === 'movie' ? r.media_type : type) as 'movie' | 'tv',
+        voteAverage: r.vote_average ?? 0,
+      }))
+  } catch (error) {
+    console.error('TMDB Recommendations Failure:', error)
+    return []
+  }
+}
+
+// The genre slugs for a RAWG game (used to find similar games on the free tier,
+// since RAWG's /suggested endpoint is paid-only).
+export async function getGameGenres(id: string): Promise<string[]> {
+  try {
+    const key = getRAWGKey()
+    const response = await fetch(`${RAWG_BASE_URL}/games/${id}?key=${key}`, {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    })
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.genres ?? []).map((g: any) => g.slug as string)
+  } catch (error) {
+    console.error('RAWG Genre Fetch Failure:', error)
+    return []
+  }
+}
+
+// Top-rated games for a set of genre slugs (free-tier game recommendations).
+export async function getGamesByGenres(genreSlugs: string[]): Promise<GameSearchResult[]> {
+  try {
+    if (genreSlugs.length === 0) return []
+    const key = getRAWGKey()
+    const response = await fetch(
+      `${RAWG_BASE_URL}/games?key=${key}&genres=${genreSlugs.join(',')}&ordering=-rating&page_size=20&metacritic=70,100`,
+      { headers: { accept: 'application/json' }, cache: 'no-store' }
+    )
+    if (!response.ok) return []
+    const data = await response.json()
+    return (data.results ?? []).map((r: any) => ({
+      id: r.id.toString(),
+      title: r.name,
+      overview: (r.genres as any[] ?? []).map((g: any) => g.name).join(', '),
+      posterPath: r.background_image ?? null,
+      releaseDate: r.released ?? '',
+      mediaType: 'game' as const,
+      rating: r.rating ?? 0,
+      metacritic: r.metacritic ?? null,
+      esrb: r.esrb_rating?.name ?? null,
+      platforms: (r.platforms as any[] ?? []).map((p: any) => p.platform.name as string),
+      stores: (r.stores as any[] ?? []).map((s: any) => s.store.name as string),
+    }))
+  } catch (error) {
+    console.error('RAWG Genre Discovery Failure:', error)
+    return []
+  }
+}
+
 export async function getGameDetails(gameId: string): Promise<{ description: string } | null> {
   try {
     const key = getRAWGKey()

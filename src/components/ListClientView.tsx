@@ -18,7 +18,8 @@ import { renameList } from '@/actions/list'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 import { useRouter } from 'next/navigation'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
-import { searchMediaAction, searchGamesAction } from '@/actions/media'
+import { searchMediaAction, searchGamesAction, getRecommendationsAction } from '@/actions/media'
+import DiscoverCard from './DiscoverCard'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -114,6 +115,9 @@ export default function ListClientView({
   const [discoverLoading, setDiscoverLoading] = useState(false)
   const [quickAddMedia, setQuickAddMedia] = useState<MediaSearchResult | null>(null)
   const [quickAddGame, setQuickAddGame] = useState<GameSearchResult | null>(null)
+  const [recommendations, setRecommendations] = useState<(MediaSearchResult | GameSearchResult)[]>([])
+  const [recsLoading, setRecsLoading] = useState(false)
+  const [recsLoaded, setRecsLoaded] = useState(false)
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const tagConfigsMap = useMemo(() => {
@@ -242,6 +246,18 @@ export default function ListClientView({
     setOpenItemInEditMode(true)
     setSelectedItem(item)
   }
+
+  // Load library-based recommendations the first time the Discover tab is opened
+  useEffect(() => {
+    if (activeCategory === 'DISCOVER' && !recsLoaded) {
+      setRecsLoaded(true)
+      setRecsLoading(true)
+      getRecommendationsAction()
+        .then(setRecommendations)
+        .catch(() => {})
+        .finally(() => setRecsLoading(false))
+    }
+  }, [activeCategory, recsLoaded])
 
   const handleDiscoverSearch = (query: string, mode: 'media' | 'game') => {
     setDiscoverQuery(query)
@@ -733,13 +749,37 @@ export default function ListClientView({
               </div>
             </div>
 
-            {/* Empty state */}
+            {/* When not searching: library-based recommendations */}
             {!discoverQuery && (
-              <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                <Telescope className="h-12 w-12 mb-3" />
-                <p className="text-2xl font-black uppercase">Discover</p>
-                <p className="font-mono text-sm">Search for something to add</p>
-              </div>
+              recsLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <Loader2 className="h-6 w-6 animate-spin mb-3" />
+                  <p className="font-mono text-sm">Finding recommendations…</p>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight">Recommended for you</h3>
+                    <p className="text-xs text-muted-foreground font-mono">Based on what's in your library</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                    {recommendations.map((r) => (
+                      <DiscoverCard
+                        key={`${(r as any).mediaType}-${r.id}`}
+                        result={r}
+                        canEdit={canEdit}
+                        onAdd={() => (r as any).mediaType === 'game' ? setQuickAddGame(r as GameSearchResult) : setQuickAddMedia(r as MediaSearchResult)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 opacity-20">
+                  <Telescope className="h-12 w-12 mb-3" />
+                  <p className="text-2xl font-black uppercase">Discover</p>
+                  <p className="font-mono text-sm">Search for something to add</p>
+                </div>
+              )
             )}
 
             {/* Results grid — same poster style as the main list */}
