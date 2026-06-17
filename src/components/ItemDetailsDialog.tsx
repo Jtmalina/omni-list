@@ -23,6 +23,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import ItemActions from './ItemActions'
 import SeasonManager from './SeasonManager'
+import { refreshLibrary } from '@/lib/hooks/useAppData'
 import { TagBadge } from './TagBadge'
 import { TagManager } from './TagManager'
 import { format } from 'date-fns'
@@ -168,6 +169,7 @@ export default function ItemDetailsDialog({
       if (confirm('Are you sure you want to delete this item?')) {
         startTransition(async () => {
           await deleteItem(item.id, listId)
+          refreshLibrary()
           onClose()
         })
       }
@@ -184,6 +186,7 @@ export default function ItemDetailsDialog({
         dueDate: editDueDate ? new Date(`${editDueDate}T${editDueTime || '00:00'}:00`) : null,
         listId
       })
+      refreshLibrary()
       setIsEditing(false)
     })
   }
@@ -196,6 +199,7 @@ export default function ItemDetailsDialog({
       const nextStatus = item.status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
       startTransition(async () => {
         await updateItemStatus(item.id, nextStatus, listId)
+        refreshLibrary()
       })
     }
   }

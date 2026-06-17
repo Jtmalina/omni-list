@@ -31,6 +31,7 @@ import { format } from 'date-fns'
 import { TagManager } from './TagManager'
 import { cn } from '@/lib/utils'
 import { getLists } from '@/actions/list'
+import { refreshLibrary } from '@/lib/hooks/useAppData'
 
 type ItemMode = 'task' | 'film' | 'game'
 
@@ -224,6 +225,7 @@ export default function AddItemDialog({
       mediaMetadata,
     })
 
+    refreshLibrary() // new item changes list counts + recommendation seeds
     setLoading(false)
     handleOpenChange(false)
   }

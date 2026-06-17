@@ -1,6 +1,7 @@
 'use client'
 
 import { deleteList } from '@/actions/list'
+import { refreshLists } from '@/lib/hooks/useAppData'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
 import { useTransition } from 'react'
@@ -28,6 +29,7 @@ export default function ListDeleteButton({
     if (confirm(message)) {
       startTransition(async () => {
         await deleteList(id)
+        refreshLists()
         if (isRedirect) {
           router.push('/')
         }

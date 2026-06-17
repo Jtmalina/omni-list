@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createList } from '@/actions/list'
+import { refreshLists } from '@/lib/hooks/useAppData'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,6 +35,7 @@ export default function AddListDialog() {
 
     setLoading(true)
     await createList(title, type)
+    refreshLists()
     setLoading(false)
     setOpen(false)
     setTitle('')

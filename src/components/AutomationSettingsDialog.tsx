@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
-import { getUserSettingsAction, updateUserAutomationSettingsAction, syncNowAction } from '@/actions/user'
-import { getLists } from '@/actions/list'
-import { useFollows, refreshFollows } from '@/lib/hooks/useAppData'
+import { updateUserAutomationSettingsAction, syncNowAction } from '@/actions/user'
+import { useFollows, refreshFollows, useUserSettings, useLists, refreshUserSettings } from '@/lib/hooks/useAppData'
 import {
   toggleFollowAction,
   searchPersonsAction,
@@ -50,16 +49,18 @@ type Tab = 'following' | 'discover'
 export default function AutomationSettingsDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<Tab>('following')
 
-  const [lists, setLists] = useState<{ id: string; title: string }[]>([])
   const [follows, setFollows] = useState<any[]>([])
-  // Prefetched + cached on page load; seeds the local list instantly on open
-  const { data: cachedFollows = [] } = useFollows()
   const [autoAddListId, setAutoAddListId] = useState<string>('')
+
+  // All prefetched + cached on page load (dialog is always mounted in the Navbar)
+  const { data: cachedFollows = [] } = useFollows()
+  const { data: lists = [], isLoading: listsLoading } = useLists()
+  const { data: cachedSettings, isLoading: settingsLoading } = useUserSettings()
+  const fetching = listsLoading || settingsLoading
 
   // Discover tab state
   const [searchQuery, setSearchQuery] = useState('')
@@ -73,19 +74,14 @@ export default function AutomationSettingsDialog() {
     if (open) setFollows(cachedFollows)
   }, [open, cachedFollows])
 
+  // Seed the auto-add selection from the cached settings on open
   useEffect(() => {
-    if (open) {
-      setFetching(true)
-      Promise.all([
-        getUserSettingsAction(),
-        getLists(),
-      ]).then(([settings, userLists]) => {
-        setLists(userLists)
-        setAutoAddListId(settings?.autoAddListId ?? 'none')
-        setFetching(false)
-      })
-    } else {
-      // Reset discover state on close
+    if (open) setAutoAddListId(cachedSettings?.autoAddListId ?? 'none')
+  }, [open, cachedSettings])
+
+  // Reset discover state on close
+  useEffect(() => {
+    if (!open) {
       setSearchQuery('')
       setSearchResults([])
       setActiveTab('following')
@@ -127,6 +123,7 @@ export default function AutomationSettingsDialog() {
       await updateUserAutomationSettingsAction({
         autoAddListId: autoAddListId === 'none' ? null : autoAddListId,
       })
+      refreshUserSettings()
       toast.success('Automation settings saved')
       setOpen(false)
     } catch {

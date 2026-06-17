@@ -9,6 +9,7 @@ import { Trash2, CloudDownload, CheckCircle2, Loader2, RefreshCw, HardDrive, Edi
 import { useTransition } from 'react'
 import { cn } from '@/lib/utils'
 import { useMediaStatus } from '@/lib/hooks/useMediaStatus'
+import { refreshLibrary } from '@/lib/hooks/useAppData'
 import { toast } from 'sonner'
 
 export default function ItemActions({
@@ -60,6 +61,7 @@ export default function ItemActions({
       const nextStatus = status === ItemStatus.COMPLETED ? ItemStatus.TODO : ItemStatus.COMPLETED
       startTransition(async () => {
         await updateItemStatus(id, nextStatus, listId)
+        refreshLibrary()
       })
     }
   }
@@ -73,6 +75,7 @@ export default function ItemActions({
       if (confirm('Are you sure you want to delete this item?')) {
         startTransition(async () => {
           await deleteItem(id, listId)
+          refreshLibrary()
         })
       }
     }

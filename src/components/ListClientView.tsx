@@ -18,8 +18,9 @@ import { renameList } from '@/actions/list'
 import { useRealtimeSync } from '@/lib/hooks/useRealtimeSync'
 import { useRouter } from 'next/navigation'
 import type { MediaSearchResult, GameSearchResult } from '@/lib/media-api'
-import { searchMediaAction, searchGamesAction, getRecommendationsAction, getTrendingAction, getUpcomingAction } from '@/actions/media'
+import { searchMediaAction, searchGamesAction } from '@/actions/media'
 import DiscoverCard from './DiscoverCard'
+import { useTrending, useUpcoming, useRecommendations, refreshLibrary } from '@/lib/hooks/useAppData'
 
 type ItemWithMedia = Item & {
   media?: MediaMetadata | null
@@ -116,11 +117,12 @@ export default function ListClientView({
   const [discoverLoading, setDiscoverLoading] = useState(false)
   const [quickAddMedia, setQuickAddMedia] = useState<MediaSearchResult | null>(null)
   const [quickAddGame, setQuickAddGame] = useState<GameSearchResult | null>(null)
-  const [recommendations, setRecommendations] = useState<(MediaSearchResult | GameSearchResult)[]>([])
-  const [trending, setTrending] = useState<(MediaSearchResult | GameSearchResult)[]>([])
-  const [upcoming, setUpcoming] = useState<(MediaSearchResult | GameSearchResult)[]>([])
-  const [recsLoading, setRecsLoading] = useState(false)
-  const [recsLoaded, setRecsLoaded] = useState(false)
+  // Discover feed — cached via SWR, fetched only while the Discover tab is open
+  const isDiscoverActive = activeCategory === 'DISCOVER'
+  const { data: trending = [], isLoading: trendingLoading } = useTrending(isDiscoverActive)
+  const { data: upcoming = [], isLoading: upcomingLoading } = useUpcoming(isDiscoverActive)
+  const { data: recommendations = [], isLoading: recommendationsLoading } = useRecommendations(isDiscoverActive)
+  const recsLoading = trendingLoading || upcomingLoading || recommendationsLoading
   const discoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const tagConfigsMap = useMemo(() => {
@@ -223,6 +225,7 @@ export default function ListClientView({
     startTransition(async () => {
       addOptimisticAction({ type: 'TOGGLE', id: item.id, status: nextStatus })
       await updateItemStatus(item.id, nextStatus, list.id)
+      refreshLibrary() // completion status feeds recommendation seeds
     })
   }
 
@@ -231,6 +234,7 @@ export default function ListClientView({
       startTransition(async () => {
         addOptimisticAction({ type: 'DELETE', id })
         await deleteItem(id, list.id)
+        refreshLibrary()
       })
     }
   }
@@ -249,20 +253,6 @@ export default function ListClientView({
     setOpenItemInEditMode(true)
     setSelectedItem(item)
   }
-
-  // Load the Discover feed (trending, upcoming, recommendations) the first time
-  // the Discover tab is opened.
-  useEffect(() => {
-    if (activeCategory === 'DISCOVER' && !recsLoaded) {
-      setRecsLoaded(true)
-      setRecsLoading(true)
-      Promise.all([
-        getTrendingAction().then(setTrending).catch(() => {}),
-        getUpcomingAction().then(setUpcoming).catch(() => {}),
-        getRecommendationsAction().then(setRecommendations).catch(() => {}),
-      ]).finally(() => setRecsLoading(false))
-    }
-  }, [activeCategory, recsLoaded])
 
   const handleDiscoverSearch = (query: string, mode: 'media' | 'game') => {
     setDiscoverQuery(query)
@@ -531,7 +521,7 @@ export default function ListClientView({
                 onBlur={async () => {
                   setIsEditingTitle(false)
                   const trimmed = editTitleValue.trim()
-                  if (trimmed && trimmed !== list.title) await renameList(list.id, trimmed)
+                  if (trimmed && trimmed !== list.title) { await renameList(list.id, trimmed); refreshLibrary() }
                   else setEditTitleValue(list.title)
                 }}
                 onKeyDown={(e) => {
