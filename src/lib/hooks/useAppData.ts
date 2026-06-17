@@ -83,12 +83,25 @@ export const refreshFollows = () => mutate(appDataKeys.follows)
 export const refreshServarrConfig = () => mutate(appDataKeys.servarrConfig)
 export const refreshUserSettings = () => mutate(appDataKeys.userSettings)
 export const refreshLists = () => mutate(appDataKeys.lists)
-export const refreshRecommendations = () => mutate(appDataKeys.recommendations)
+
+// Recommendations are derived from a TMDB/RAWG fetch, so coalesce rapid
+// invalidations (e.g. a bulk edit) into a single refresh. Because the
+// recommendations hook is only subscribed while the Discover tab is open,
+// this is a no-op network-wise unless you're actually viewing the feed.
+let recTimer: ReturnType<typeof setTimeout> | null = null
+export const refreshRecommendations = () => {
+  if (recTimer) clearTimeout(recTimer)
+  recTimer = setTimeout(() => {
+    recTimer = null
+    mutate(appDataKeys.recommendations)
+  }, 1500)
+}
 
 // Anything that changes the library (add/edit/delete/complete an item, or
 // add/remove/rename a list) should call this so list counts and the
-// recommendations feed stay in sync.
+// recommendations feed stay in sync. List counts refresh immediately (cheap
+// DB query); recommendations refresh is debounced.
 export const refreshLibrary = () => {
   mutate(appDataKeys.lists)
-  mutate(appDataKeys.recommendations)
+  refreshRecommendations()
 }
