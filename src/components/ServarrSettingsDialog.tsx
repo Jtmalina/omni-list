@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { saveServarrConfigAction, getServarrConfigAction } from '@/actions/servarr'
+import { saveServarrConfigAction } from '@/actions/servarr'
+import { useServarrConfig, refreshServarrConfig } from '@/lib/hooks/useAppData'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,7 +20,9 @@ import { Settings2, Loader2, Save } from 'lucide-react'
 export default function ServarrSettingsDialog() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [fetching, setFetching] = useState(false)
+
+  // Cached + prefetched on page load; opening the dialog is instant
+  const { data: config, isLoading: fetching } = useServarrConfig()
 
   const [radarrUrl, setRadarrUrl] = useState('')
   const [radarrApiKey, setRadarrApiKey] = useState('')
@@ -31,24 +34,20 @@ export default function ServarrSettingsDialog() {
   const [sonarrRootFolder, setSonarrRootFolder] = useState('/tv')
   const [sonarrQualityProfileId, setSonarrQualityProfileId] = useState('1')
 
+  // Seed the form from the cached config when it loads or the dialog (re)opens,
+  // so reopening discards any unsaved edits and reflects the saved values.
   useEffect(() => {
-    if (open) {
-      setFetching(true)
-      getServarrConfigAction().then((config) => {
-        if (config) {
-          setRadarrUrl(config.radarrUrl || '')
-          setRadarrApiKey(config.radarrApiKey || '')
-          setRadarrRootFolder(config.radarrRootFolder || '/movies')
-          setRadarrQualityProfileId(config.radarrQualityProfileId?.toString() || '1')
-          setSonarrUrl(config.sonarrUrl || '')
-          setSonarrApiKey(config.sonarrApiKey || '')
-          setSonarrRootFolder(config.sonarrRootFolder || '/tv')
-          setSonarrQualityProfileId(config.sonarrQualityProfileId?.toString() || '1')
-        }
-        setFetching(false)
-      })
+    if (config) {
+      setRadarrUrl(config.radarrUrl || '')
+      setRadarrApiKey(config.radarrApiKey || '')
+      setRadarrRootFolder(config.radarrRootFolder || '/movies')
+      setRadarrQualityProfileId(config.radarrQualityProfileId?.toString() || '1')
+      setSonarrUrl(config.sonarrUrl || '')
+      setSonarrApiKey(config.sonarrApiKey || '')
+      setSonarrRootFolder(config.sonarrRootFolder || '/tv')
+      setSonarrQualityProfileId(config.sonarrQualityProfileId?.toString() || '1')
     }
-  }, [open])
+  }, [config, open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,6 +64,7 @@ export default function ServarrSettingsDialog() {
         sonarrRootFolder,
         sonarrQualityProfileId: parseInt(sonarrQualityProfileId),
       })
+      refreshServarrConfig()
       setOpen(false)
     } catch (error) {
       alert('Failed to save settings')

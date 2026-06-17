@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import {
   sendFriendRequestAction,
-  getFriendsAction,
-  getPendingRequestsAction,
   acceptFriendRequestAction,
   rejectFriendRequestAction
 } from '@/actions/friends'
+import { useFriends, usePendingRequests, refreshFriends } from '@/lib/hooks/useAppData'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -26,26 +25,10 @@ export default function FriendsDialog() {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [isPending, startTransition] = useTransition()
-  const [friends, setFriends] = useState<any[]>([])
-  const [pendingRequests, setPendingRequests] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
 
-  const fetchData = async () => {
-    setLoading(true)
-    const [f, p] = await Promise.all([
-      getFriendsAction(),
-      getPendingRequestsAction()
-    ])
-    setFriends(f)
-    setPendingRequests(p)
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    if (open) {
-      fetchData()
-    }
-  }, [open])
+  // Cached + prefetched on page load (dialog is always mounted in the Navbar)
+  const { data: friends = [], isLoading: loading } = useFriends()
+  const { data: pendingRequests = [] } = usePendingRequests()
 
   const handleSendRequest = (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,7 +38,7 @@ export default function FriendsDialog() {
         await sendFriendRequestAction(email)
         alert('Friend request sent!')
         setEmail('')
-        fetchData()
+        refreshFriends()
       } catch (error: any) {
         alert(error.message)
       }
@@ -65,7 +48,7 @@ export default function FriendsDialog() {
   const handleAccept = (requestId: string) => {
     startTransition(async () => {
       await acceptFriendRequestAction(requestId)
-      fetchData()
+      refreshFriends()
     })
   }
 
@@ -73,7 +56,7 @@ export default function FriendsDialog() {
     if (confirm('Are you sure?')) {
       startTransition(async () => {
         await rejectFriendRequestAction(requestId)
-        fetchData()
+        refreshFriends()
       })
     }
   }
@@ -124,7 +107,7 @@ export default function FriendsDialog() {
                   <div key={req.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={req.sender.image} />
+                        <AvatarImage src={req.sender.image ?? undefined} />
                         <AvatarFallback>{req.sender.name?.[0] || req.sender.email?.[0]}</AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
@@ -157,7 +140,7 @@ export default function FriendsDialog() {
                 {friends.map((friend) => (
                   <div key={friend.id} className="flex items-center gap-2 p-2 hover:bg-muted/30 rounded-lg transition-colors">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={friend.image} />
+                      <AvatarImage src={friend.image ?? undefined} />
                       <AvatarFallback>{friend.name?.[0] || friend.email?.[0]}</AvatarFallback>
                     </Avatar>
                     <div className="min-w-0">

@@ -3,8 +3,8 @@
 import { useState, useEffect, useTransition, useRef, useCallback } from 'react'
 import { getUserSettingsAction, updateUserAutomationSettingsAction, syncNowAction } from '@/actions/user'
 import { getLists } from '@/actions/list'
+import { useFollows, refreshFollows } from '@/lib/hooks/useAppData'
 import {
-  getFollowsAction,
   toggleFollowAction,
   searchPersonsAction,
   searchStudiosAction,
@@ -57,6 +57,8 @@ export default function AutomationSettingsDialog() {
 
   const [lists, setLists] = useState<{ id: string; title: string }[]>([])
   const [follows, setFollows] = useState<any[]>([])
+  // Prefetched + cached on page load; seeds the local list instantly on open
+  const { data: cachedFollows = [] } = useFollows()
   const [autoAddListId, setAutoAddListId] = useState<string>('')
 
   // Discover tab state
@@ -66,16 +68,19 @@ export default function AutomationSettingsDialog() {
   const [searching, setSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Seed the following list from the prefetched cache so it's instant on open
+  useEffect(() => {
+    if (open) setFollows(cachedFollows)
+  }, [open, cachedFollows])
+
   useEffect(() => {
     if (open) {
       setFetching(true)
       Promise.all([
         getUserSettingsAction(),
         getLists(),
-        getFollowsAction(),
-      ]).then(([settings, userLists, userFollows]) => {
+      ]).then(([settings, userLists]) => {
         setLists(userLists)
-        setFollows(userFollows)
         setAutoAddListId(settings?.autoAddListId ?? 'none')
         setFetching(false)
       })
@@ -155,6 +160,7 @@ export default function AutomationSettingsDialog() {
       })
       if (result.success) {
         setFollows((prev) => prev.filter((f) => f.id !== follow.id))
+        refreshFollows()
         toast.success(`Stopped following ${follow.name}`)
       }
     })
@@ -198,6 +204,7 @@ export default function AutomationSettingsDialog() {
           setFollows((prev) => prev.filter((f) => f.externalId !== result.id))
           toast.success(`Unfollowed ${result.name}`)
         }
+        refreshFollows()
       }
     })
   }
