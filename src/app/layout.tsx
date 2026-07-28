@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Analytics } from "@vercel/analytics/next";
 
 const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
 
@@ -40,6 +41,7 @@ export default function RootLayout({
           {children}
           <Toaster richColors position="top-center" />
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
