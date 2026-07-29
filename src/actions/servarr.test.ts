@@ -146,14 +146,57 @@ describe('saveSeasonPreferenceAction', () => {
 describe('getMediaStatusAction', () => {
   const DEFAULT = { inLibrary: false, hasFile: false, progress: null, serverId: null }
 
+  const ownerConfig = {
+    radarrUrl: 'http://radarr', radarrApiKey: 'enc:key',
+    sonarrUrl: 'http://sonarr', sonarrApiKey: 'enc:key',
+  }
+
+  // Item shape returned by the consolidated single query.
+  function statusItem(overrides: Partial<any> = {}) {
+    return {
+      mediaType: 'MOVIE',
+      media: { externalId: '27205' },
+      list: {
+        userId: GUEST,        // caller owns the list by default
+        sharedWith: [],
+        user: { servarrConfig: ownerConfig },
+      },
+      ...overrides,
+    }
+  }
+
   it('returns a safe default for an unauthenticated caller', async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
     await expect(getMediaStatusAction('item-1')).resolves.toEqual(DEFAULT)
   })
 
-  it('returns a safe default when the caller lacks list access', async () => {
-    prismaMock.item.findUnique.mockResolvedValue({ listId: 'list-1', media: { externalId: '27205' }, mediaType: 'MOVIE' } as any)
-    vi.mocked(verifyListAccess).mockRejectedValue(new Error('Access denied'))
+  it('returns a safe default when the caller is neither owner nor shared', async () => {
+    prismaMock.item.findUnique.mockResolvedValue(
+      statusItem({ list: { userId: 'someone-else', sharedWith: [], user: { servarrConfig: ownerConfig } } }) as any,
+    )
     await expect(getMediaStatusAction('item-1')).resolves.toEqual(DEFAULT)
+  })
+
+  it('returns a safe default when the list owner has no Servarr config', async () => {
+    prismaMock.item.findUnique.mockResolvedValue(
+      statusItem({ list: { userId: GUEST, sharedWith: [], user: { servarrConfig: null } } }) as any,
+    )
+    await expect(getMediaStatusAction('item-1')).resolves.toEqual(DEFAULT)
+  })
+
+  it("reads status for the owner using the owner's decrypted config", async () => {
+    prismaMock.item.findUnique.mockResolvedValue(statusItem() as any)
+    const res = await getMediaStatusAction('item-1')
+    expect(res).toEqual({ inLibrary: true, hasFile: true, progress: null, serverId: 1 })
+    expect(servarrApi.getMovieStatus).toHaveBeenCalledWith(27205, expect.objectContaining({ radarrApiKey: 'key' }))
+  })
+
+  it('lets a shared viewer (not the owner) read status', async () => {
+    prismaMock.item.findUnique.mockResolvedValue(
+      statusItem({ list: { userId: 'owner-x', sharedWith: [{ userId: GUEST }], user: { servarrConfig: ownerConfig } } }) as any,
+    )
+    const res = await getMediaStatusAction('item-1')
+    expect(res).toEqual({ inLibrary: true, hasFile: true, progress: null, serverId: 1 })
+    expect(servarrApi.getMovieStatus).toHaveBeenCalled()
   })
 })

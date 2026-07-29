@@ -103,25 +103,48 @@ export async function getMediaStatusAction(itemId: string) {
   const defaultStatus = { inLibrary: false, hasFile: false, progress: null, serverId: null as number | null }
 
   const session = await auth()
-  if (!session?.user?.id) return defaultStatus
+  const userId = session?.user?.id
+  if (!userId) return defaultStatus
 
   // Status polls on a timer, so degrade gracefully rather than throwing. Generous
   // limit covers large libraries polling in parallel while capping runaway loops.
-  if (!rateLimit(`status:${session.user.id}`, 240, 60_000).ok) return defaultStatus
+  if (!rateLimit(`status:${userId}`, 240, 60_000).ok) return defaultStatus
 
-  // Security check: must have at least view access to the list
-  const item = await prisma.item.findUnique({ where: { id: itemId }, select: { listId: true, media: true, mediaType: true } })
-  if (!item || !item.media?.externalId) return defaultStatus
-  try {
-    await verifyListAccess(item.listId, 'VIEW')
-  } catch (e) {
-    return defaultStatus
+  // One query does the whole job: the item + its externalId, the caller's share
+  // row (for the VIEW check), and the list owner's Servarr config. This replaces
+  // the previous item.findUnique + verifyListAccess (a list.findUnique, plus a
+  // second auth()) + getOwnerConfigForItem (a second item.findUnique) — collapsed
+  // to a single auth() and a single round-trip on this hot, frequently-polled path.
+  const item = await prisma.item.findUnique({
+    where: { id: itemId },
+    select: {
+      mediaType: true,
+      media: { select: { externalId: true } },
+      list: {
+        select: {
+          userId: true,
+          sharedWith: { where: { userId }, select: { userId: true } },
+          user: { select: { servarrConfig: true } },
+        },
+      },
+    },
+  })
+
+  const externalId = item?.media?.externalId
+  if (!item || !externalId) return defaultStatus
+
+  // VIEW access: the caller is the list owner, or the list is shared with them.
+  const canView = item.list.userId === userId || item.list.sharedWith.length > 0
+  if (!canView) return defaultStatus
+
+  const ownerConfig = item.list.user.servarrConfig
+  if (!ownerConfig) return defaultStatus
+
+  const config = {
+    ...ownerConfig,
+    radarrApiKey: ownerConfig.radarrApiKey ? decrypt(ownerConfig.radarrApiKey) : null,
+    sonarrApiKey: ownerConfig.sonarrApiKey ? decrypt(ownerConfig.sonarrApiKey) : null,
   }
-
-  const { config } = await getOwnerConfigForItem(itemId)
-  if (!config) return defaultStatus
-
-  const externalId = item.media.externalId
 
   if (item.mediaType === MediaType.MOVIE) {
     return await getMovieStatus(parseInt(externalId), config)
