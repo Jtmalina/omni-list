@@ -7,6 +7,7 @@ import { getServarrConfigAction } from '@/actions/servarr'
 import { getUserSettingsAction } from '@/actions/user'
 import { getLists } from '@/actions/list'
 import { getTrendingAction, getUpcomingAction, getRecommendationsAction } from '@/actions/media'
+import { fresh, stable, discoverOpts } from './swrOptions'
 
 // Centralised SWR hooks for the navbar menus (friends, follows, Servarr config).
 //
@@ -26,9 +27,6 @@ export const appDataKeys = {
   upcoming: 'discover-upcoming',
   recommendations: 'discover-recommendations',
 } as const
-
-const fresh = { dedupingInterval: 30_000 }
-const stable = { revalidateOnFocus: false, dedupingInterval: 60_000 }
 
 export function useFriends() {
   return useSWR(appDataKeys.friends, () => getFriendsAction(), fresh)
@@ -58,8 +56,6 @@ export function useLists() {
 // results are still cached, so reopening the tab is instant. Trending/upcoming
 // are global and rarely change; recommendations track the user's library and
 // are invalidated by refreshLibrary() whenever items change.
-const discoverOpts = { revalidateOnFocus: false, dedupingInterval: 5 * 60_000 }
-
 export function useTrending(enabled: boolean) {
   return useSWR(enabled ? appDataKeys.trending : null, () => getTrendingAction(), discoverOpts)
 }

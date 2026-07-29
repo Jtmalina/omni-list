@@ -417,7 +417,16 @@ export async function updateSeriesMonitoredSeasons(
   return { success: true };
 }
 
+// A TMDB id -> TVDB id mapping never changes, so cache it at module scope
+// (kept warm across invocations on the same instance). Previously every SHOW
+// status poll made a fresh, uncached TMDB round-trip. Only positive results are
+// cached so a transient TMDB error can be retried on the next call.
+const tvdbIdCache = new Map<string, number>();
+
 export async function getTvdbIdFromTmdb(tmdbId: string): Promise<number | null> {
+  const cached = tvdbIdCache.get(tmdbId);
+  if (cached !== undefined) return cached;
+
   const token = process.env.TMDB_API_KEY?.trim().replace(/^["']|["']$/g, '');
   if (!token) return null;
 
@@ -428,10 +437,13 @@ export async function getTvdbIdFromTmdb(tmdbId: string): Promise<number | null> 
         accept: 'application/json',
         Authorization: `Bearer ${token}`,
       },
+      cache: 'no-store',
     }
   );
 
   if (!response.ok) return null;
   const data = await response.json();
-  return data.tvdb_id;
+  const tvdbId = typeof data.tvdb_id === 'number' ? data.tvdb_id : null;
+  if (tvdbId !== null) tvdbIdCache.set(tmdbId, tvdbId);
+  return tvdbId;
 }

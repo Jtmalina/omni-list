@@ -10,7 +10,13 @@ export function useRealtimeSync(listId?: string) {
   useEffect(() => {
     if (!supabase) return
 
-    // 1. Listen for Item changes in the specific list
+    // Listen only for Item changes in THIS list. Scoping by listId keeps the
+    // refresh local: a change to one list never re-renders everyone else's page.
+    //
+    // Note: we deliberately do NOT subscribe to a global Activity stream here.
+    // A previous unfiltered Activity subscription called router.refresh() on
+    // every connected client for any user's activity anywhere — a large,
+    // invisible source of server CPU (the list page doesn't show the feed).
     const itemChannel = supabase
       .channel(`list-items-${listId || 'all'}`)
       .on(
@@ -22,23 +28,6 @@ export function useRealtimeSync(listId?: string) {
           filter: listId ? `listId=eq.${listId}` : undefined,
         },
         () => {
-          // Tell Next.js to refresh the server data
-          router.refresh()
-        }
-      )
-      .subscribe()
-
-    // 2. Listen for Activity changes (Social Feed)
-    const activityChannel = supabase
-      .channel('social-activities')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'Activity',
-        },
-        () => {
           router.refresh()
         }
       )
@@ -46,7 +35,6 @@ export function useRealtimeSync(listId?: string) {
 
     return () => {
       supabase.removeChannel(itemChannel)
-      supabase.removeChannel(activityChannel)
     }
   }, [listId, router])
 }
